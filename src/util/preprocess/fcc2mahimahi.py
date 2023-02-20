@@ -7,10 +7,13 @@ import math
 from tqdm import tqdm
 import os
 import argparse
+import datetime
 
-FILE_PATH = "./dataset/mahimahi/202212/curr_webget.csv"
-COOKED_PATH = './dataset/mahimahi/cooked/'
-MAHIMAHI_PATH = './dataset/mahimahi/traces/'
+FILE_PATH = "./dataset/fcc/202201/curr_webget.csv"
+COOKED_PATH = './dataset/fcc/202201cooked/'
+MAHIMAHI_PATH = './dataset/fcc/202201traces/'
+SIM_TRACE_PATH = './dataset/fcc/202201sim/'
+TIME_ORIGIN = datetime.datetime.utcfromtimestamp(0)
 MILLISEC_IN_SEC = 1000.0
 BYTES_PER_MTU = 1500.0
 
@@ -71,15 +74,54 @@ def convert2mahimahi():
                         break
 
 
+# def convert_sim_format():
+#     """convert fcc to simulation trace format [timestamp, Mbits/sec]
+#     """
+#     sim_traces = {}
+#     with open(FILE_PATH, "r") as f:
+#         reader = csv.reader(f, delimiter=',')
+#         next(reader)
+#         for line in tqdm(reader, desc="reading"):
+#             uid = line[0]
+#             target = line[2]
+#             try:
+#                 dtime = (datetime.datetime.strptime(
+#                     line[1], "%Y-%m-%d %H:%M:%S") - TIME_ORIGIN).total_seconds()
+#             except:
+#                 continue
+#             else:
+#                 throughput = line[6]
+#                 id = (str(uid), target)
+#                 if id in sim_traces:
+#                     sim_traces[id].append([dtime, throughput])
+#                 else:
+#                     sim_traces[id] = [[dtime, throughput]]
+
+#     for id in tqdm(sim_traces, desc="save"):
+#         out_file = 'simtrace' + \
+#             '_'.join(id).replace(':', '-').replace('/', '-')
+#         out_file = SIM_TRACE_PATH + out_file
+#         if not os.path.exists(SIM_TRACE_PATH):
+#             os.makedirs(SIM_TRACE_PATH)
+#             print(f"make new folder {SIM_TRACE_PATH}")
+#         with open(out_file, 'w') as f:
+#             for [timestamp, throughput] in sim_traces[id]:
+#                 f.write(str(timestamp) + " " + str(throughput) + '\n')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--cook", action="store_true",
                         help="cook raw fcc trace")
     parser.add_argument("--convert", action="store_true",
                         help="convert cooked trace to Mahimahi format")
+    # parser.add_argument('--cooksim', action="store_true",
+    #                     help="convert raw fcc traces to simulation format")
     args = parser.parse_args()
     if args.cook:
         cook_raw_data()
     if args.convert:
         convert2mahimahi()
+    # if args.cooksim:
+    #     convert_sim_format()
     print("done")
