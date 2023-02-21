@@ -94,7 +94,7 @@ class Detector():
         cv2.destroyAllWindows()
 
     def save_single_frame(self, video_path):
-        _, _, files = os.walk(video_path)
+        _, _, files = next(os.walk(video_path))
         crf_config = []
         for video_file in tqdm(files, desc="processing"):
             config = video_file[:-4].split('_')
@@ -129,7 +129,8 @@ class Detector():
             path: path that contains all processed seperated images
             saving_path: path that used for store the pre-detection result
         """
-        _, dirs, _ = os.walk(path)
+        print(f"path {path}")
+        _, dirs, _ = next(os.walk(path))
         for dir in tqdm(dirs, desc="processing"):
             if not os.path.exists(f"{saving_path}/{dir}"):
                 os.makedirs(f"{saving_path}/{dir}")
