@@ -25,14 +25,16 @@ class Detector():
         result = self.model(frame)
         result_table = result.pandas().xyxy[0]
         process_time = sum(result.t)
-        confidence = result_table["confidence"]
-        x_min = result_table["xmin"]
-        y_min = result_table["ymin"]
-        x_max = result_table["xmax"]
-        y_max = result_table["ymax"]
-        object_name = result_table["name"]
+        confidence = result_table["confidence"].values.tolist()
+        x_min = result_table["xmin"].values.tolist()
+        y_min = result_table["ymin"].values.tolist()
+        x_max = result_table["xmax"].values.tolist()
+        y_max = result_table["ymax"].values.tolist()
+        object_name = result_table["name"].values.tolist()
         self.frame_counter += 1
-        return {"processing_time": process_time, "result": [object_name, confidence, [x_min, y_min, x_max, y_max]]}
+        # [process_time, xmin, ymin, xmax, ymax, confidence, class]
+        return [[process_time, result[0], result[1], result[2], result[3], result[4], result[6]] for _, result in result_table.values.tolist()]
+        # return {"processing_time": process_time, "result": [object_name, confidence, [x_min, y_min, x_max, y_max]]}
 
     def save(self, result, f):
         frame_num = result["frame_num"]
@@ -132,6 +134,7 @@ class Detector():
         print(f"path {path}")
         _, dirs, _ = next(os.walk(path))
         for dir in tqdm(dirs, desc="processing"):
+            self.reset()
             if not os.path.exists(f"{saving_path}/{dir}"):
                 os.makedirs(f"{saving_path}/{dir}")
                 print(f"makeing new folder: {saving_path}/{dir}")
@@ -142,11 +145,9 @@ class Detector():
                     frame_num = int(frame_name[:-4])
                     result = self.detect(frame_path)
                     file_size = os.path.getsize(frame_path)
-                    processing_time = result["processing_time"]
-                    detection_result = result["result"]
-                    for item in detection_result:
+                    for item in result:
                         f.write(
-                            f"{frame_num:06d} {file_size} {processing_time} {item[0]} {item[1]} {item[2][0]} {item[2][1]} {item[2][2]} {item[2][3]}\n")
+                            f"{frame_num:06d} {file_size} {item[0]} {item[1]} {item[2]} {item[3]} {item[4]} {item[5]} {item[6]}\n")
 
 
 if __name__ == "__main__":
