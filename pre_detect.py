@@ -152,8 +152,7 @@ class Detector():
                     for item in result:
                         item.insert(0, file_size)
                         item.insert(0, f"{frame_num:06d}")
-                        f.write(' '.join(item), "\n")
-
+                        f.write(' '.join([str(v) for v in item]))
 
 if __name__ == "__main__":
     # run: python pre_detect.py --filepath=test_data/test.flv
