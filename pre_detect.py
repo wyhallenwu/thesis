@@ -15,7 +15,7 @@ class Detector():
         self.model.to(self.device)
         self.frame_counter = 0
 
-    def detect(self, frame):
+    def detect(self, frame, frame_num=None):
         """detect single frame and return the result.
         @params:
             frame: filename or cv2 image or pytorch image or numpy image or PIL image
@@ -36,9 +36,11 @@ class Detector():
         for _, item in result_table:
             item = item.values.tolist()
             item.insert(0, process_time)
+            if frame_num is not None:
+                item.insert(0, f"{frame_num:06d}")
             detect_result.append(item)
+        # [[(frame_num), process_time, xmin, ymin, xmax, ymax, confidence, class_id, name]]
         return detect_result
-        # [process_time, xmin, ymin, xmax, ymax, confidence, class]
 
     def save(self, result, f):
         frame_num = result["frame_num"]
@@ -144,14 +146,13 @@ class Detector():
                 print(f"makeing new folder: {saving_path}/{dir}")
             with open(f"{saving_path}/{dir}/{dir}_{self.model_type}.csv", 'w') as f:
                 print(f"pre-detection: {dir}")
-                for frame_name in os.listdir(f"{path}/{dir}"):
+                for frame_name in os.listdir(f"{path}/{dir}").sort():
                     frame_path = f"{path}/{dir}/{frame_name}"
                     frame_num = int(frame_name[:-4])
-                    result = self.detect(frame_path)
+                    result = self.detect(frame_path, frame_num)
                     file_size = os.path.getsize(frame_path)
                     for item in result:
-                        item.insert(0, file_size)
-                        item.insert(0, f"{frame_num:06d}")
+                        item.insert(1, file_size)
                         f.write(' '.join([str(v) for v in item]))
                         f.write('\n')
 
