@@ -10,8 +10,8 @@ do
     do
         for crf in ${constant_rate_factor[@]}
         do
-            ffmpeg -r $fr -f image2 -i ~/MOT16-04/img1/%6d.jpg -c:v libx264 -crf $crf -s ${width[$i]}x${height[$i]} ${width[$i]}x${height[$i]}_$fr_$crf.flv
+            echo ${width[$i]} ${height[$i]}
+            ffmpeg -f image2 -r $fr -i MOT16-04/img1/%6d.jpg -s ${width[$i]}x${height[$i]} -c:v libx264 -crf $crf videos/${width[$i]}_${height[$i]}_${fr}_${crf}.flv
         done
     done
 done
-

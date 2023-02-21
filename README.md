@@ -36,6 +36,7 @@ run the make_traces.py in sim/ via python2 to get simulation traces
 ```
 
 ## environment
+
 ```
 ./configure --prefix=/home/shdx/disk2/wuyuheng/thesis/dev/ --enable-shared --enable-gpl --enable-libx264 --enable-cuda-nvcc --enable-nonfree --disable-x86asm
 ```
@@ -46,6 +47,4 @@ ffmpeg -re -i input.mp4 -vcodec libx264 -c copy -f flv rtmp://100.64.0.1:1935/li
 
 ## schedule
 
-- [ ] server side
-- [ ] reading and detecting from rtmp stream
-- [ ] iot side, stream configuration(frame rate, resotion, server selection)
+- [ ] detect all preprocessed video clips with pytorch yolov5 and split them into seperate jpg files and recored related result

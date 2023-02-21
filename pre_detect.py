@@ -1,14 +1,18 @@
 import torch
+import cv2
+import argparse
 import numpy as np
+import os
 
 
 class Detector():
-    def __init__(self, path, model_type):
+    def __init__(self, model_type):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.path = path
+        # self.path = path
         self.model = torch.hub.load(
             'ultralytics/yolov5', model_type, pretrained=True, trust_repo=True)
         self.model.to(self.device)
+        self.frame_counter = 0
 
     def detect(self, frame):
         result = self.model(frame)
@@ -19,6 +23,8 @@ class Detector():
         y_min = result_table["ymin"]
         x_max = result_table["xmax"]
         y_max = result_table["ymax"]
+        self.frame_counter += 1
+        # print(self.frame_counter)
         return process_time, confidence, [x_min, y_min, x_max, y_max]
 
     def save(self, result, f):
@@ -64,3 +70,58 @@ class Detector():
             accuracy
         """
         pass
+
+    def test(self, video_file):
+        cap = cv2.VideoCapture(video_file)
+        print("test")
+        while (cap.isOpened()):
+            _, frame = cap.read()
+            if frame is not None:
+                self.detect(frame)
+            else:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+
+    def save_single_frame(self, video_path):
+        files = os.listdir(video_path)
+        crf_config = []
+        for video_file in files:
+            self.frame_counter = 0
+            config = (video_file - ".flv").split('_')
+            width = int(config[0])
+            height = int(config[1])
+            frame_rate = int(config[2])
+            constant_rate_factor = int(config[3])
+            frame_counter = 0
+            config = [width, height, constant_rate_factor]
+            crf_config.append(config)
+            if config not in crf_config:
+                path = video_path+'/'+f"{config[0]}_{config[1]}_{config[2]}"
+                if os.path.exists(path):
+                    os.makedirs(path)
+                cap = cv2.VideoCapture(video_path + "/" + video_file)
+                while(cap.isOpened()):
+                    _, frame = cap.read()
+                    if frame is not None:
+                        frame_counter += 1
+                        cv2.imwrite(
+                            f"{path}/{frame_counter:06d}.jpg", frame)
+                    else:
+                        break
+                cap.release()
+
+
+if __name__ == "__main__":
+    # run: python pre_detect.py --filepath=test_data/test.flv
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--filepath", type=str, help="test video file path")
+    parser.add_argument("--video_path", type=str,
+                        help="videos path for save single images")
+    args = parser.parse_args()
+    if args.filepath:
+        detector = Detector("yolov5n")
+        detector.test(args.filepath)
+    if args.video_path:
+        detector = Detector("yolov5n")
+        detector.save_single_frame(args.video_path)
