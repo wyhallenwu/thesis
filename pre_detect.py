@@ -146,7 +146,7 @@ class Detector():
                 print(f"makeing new folder: {saving_path}/{dir}")
             with open(f"{saving_path}/{dir}/{dir}_{self.model_type}.csv", 'w') as f:
                 print(f"pre-detection: {dir}")
-                for frame_name in os.listdir(f"{path}/{dir}").sort():
+                for frame_name in sorted(os.listdir(f"{path}/{dir}")):
                     frame_path = f"{path}/{dir}/{frame_name}"
                     frame_num = int(frame_name[:-4])
                     result = self.detect(frame_path, frame_num)
