@@ -22,9 +22,11 @@ class Detector():
         print(x_min)
         print(type(result_table))
         for index, row in result_table.iterrows():
+            # print(row)
+            # print(type(row))
+            row = row.values.tolist()
+            row.insert(0, process_time)
             print(row)
-            print(type(row))
-            print(row.values.tolist())
 
 
 if __name__ == "__main__":

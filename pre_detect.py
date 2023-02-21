@@ -23,18 +23,22 @@ class Detector():
             result: processing_time, confidence, boxes
         """
         result = self.model(frame)
-        result_table = result.pandas().xyxy[0]
+        result_table = result.pandas().xyxy[0].iterrows()
         process_time = sum(result.t)
-        confidence = result_table["confidence"].values.tolist()
-        x_min = result_table["xmin"].values.tolist()
-        y_min = result_table["ymin"].values.tolist()
-        x_max = result_table["xmax"].values.tolist()
-        y_max = result_table["ymax"].values.tolist()
-        object_name = result_table["name"].values.tolist()
+        # confidence = result_table["confidence"].values.tolist()
+        # x_min = result_table["xmin"].values.tolist()
+        # y_min = result_table["ymin"].values.tolist()
+        # x_max = result_table["xmax"].values.tolist()
+        # y_max = result_table["ymax"].values.tolist()
+        # object_name = result_table["name"].values.tolist()
         self.frame_counter += 1
+        detect_result = []
+        for _, item in result_table:
+            item = item.values.tolist()
+            item.insert(0, process_time)
+            detect_result.append(item)
+        return detect_result
         # [process_time, xmin, ymin, xmax, ymax, confidence, class]
-        return [[process_time, result[0], result[1], result[2], result[3], result[4], result[6]] for _, result in result_table.values.tolist()]
-        # return {"processing_time": process_time, "result": [object_name, confidence, [x_min, y_min, x_max, y_max]]}
 
     def save(self, result, f):
         frame_num = result["frame_num"]
@@ -146,8 +150,9 @@ class Detector():
                     result = self.detect(frame_path)
                     file_size = os.path.getsize(frame_path)
                     for item in result:
-                        f.write(
-                            f"{frame_num:06d} {file_size} {item[0]} {item[1]} {item[2]} {item[3]} {item[4]} {item[5]} {item[6]}\n")
+                        item.insert(0, file_size)
+                        item.insert(0, f"{frame_num:06d}")
+                        f.write(item.join(" "), "\n")
 
 
 if __name__ == "__main__":
