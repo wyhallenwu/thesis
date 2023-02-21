@@ -9,9 +9,9 @@ from tqdm import tqdm
 class Detector():
     def __init__(self, model_type):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        # self.path = path
+        self.model_type = model_type
         self.model = torch.hub.load(
-            'ultralytics/yolov5', model_type, pretrained=True, trust_repo=True)
+            'ultralytics/yolov5', self.model_type, pretrained=True, trust_repo=True)
         self.model.to(self.device)
         self.frame_counter = 0
 
@@ -94,7 +94,7 @@ class Detector():
         cv2.destroyAllWindows()
 
     def save_single_frame(self, video_path):
-        files = os.listdir(video_path)
+        _, _, files = os.walk(video_path)
         crf_config = []
         for video_file in tqdm(files, desc="processing"):
             config = video_file[:-4].split('_')
@@ -129,14 +129,15 @@ class Detector():
             path: path that contains all processed seperated images
             saving_path: path that used for store the pre-detection result
         """
-        for _, dirs, _ in tqdm(os.walk(path), desc="processing"):
-            if not os.path.exists(f"{saving_path}/{dirs}"):
-                os.makedirs(f"{saving_path}/{dirs}")
-                print(f"makeing new folder: {saving_path}/{dirs}")
-            with open(f"{saving_path}/{dirs}/{dirs}.csv") as f:
-                print(f"pre-detection: {dirs}")
-                for frame_name in os.listdir(f"{path}/{dirs}"):
-                    frame_path = f"{path}/{dirs}/{frame_name}"
+        _, dirs, _ = os.walk(path)
+        for dir in tqdm(dirs, desc="processing"):
+            if not os.path.exists(f"{saving_path}/{dir}"):
+                os.makedirs(f"{saving_path}/{dir}")
+                print(f"makeing new folder: {saving_path}/{dir}")
+            with open(f"{saving_path}/{dir}/{dir}_{self.model_type}.csv") as f:
+                print(f"pre-detection: {dir}")
+                for frame_name in os.listdir(f"{path}/{dir}"):
+                    frame_path = f"{path}/{dir}/{frame_name}"
                     frame_num = int(frame_name[:-4])
                     result = self.detect(frame_path)
                     file_size = os.path.getsize(frame_path)
@@ -155,11 +156,16 @@ if __name__ == "__main__":
     parser.add_argument("--filepath", type=str, help="test video file path")
     parser.add_argument("--video_path", type=str,
                         help="videos path for save single images")
+    parser.add_argument("--saving_path", type=str,
+                        help="pre-detection csv saving path")
     args = parser.parse_args()
     if args.model_type:
         if args.filepath:
             detector = Detector(args.model_type)
             detector.test(args.filepath)
-        if args.video_path:
+        if args.video_path and args.saving_path is None:
             detector = Detector(args.model_type)
             detector.save_single_frame(args.video_path)
+        if args.saving_path and args.video_path:
+            detector = Detector(args.model_type)
+            detector.pre_detect(args.video_path, args.saving_path)
