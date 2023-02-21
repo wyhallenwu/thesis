@@ -3,6 +3,7 @@ import cv2
 import argparse
 import numpy as np
 import os
+from tqdm import tqdm
 
 
 class Detector():
@@ -86,12 +87,13 @@ class Detector():
     def save_single_frame(self, video_path):
         files = os.listdir(video_path)
         crf_config = []
-        for video_file in files:
+        for video_file in tqdm(files, desc="processing"):
+            print(f"file: {video_file}")
             self.frame_counter = 0
-            config = (video_file - ".flv").split('_')
+            config = video_file[:-4].split('_')
             width = int(config[0])
             height = int(config[1])
-            frame_rate = int(config[2])
+            # frame_rate = int(config[2])
             constant_rate_factor = int(config[3])
             frame_counter = 0
             config = [width, height, constant_rate_factor]
