@@ -152,7 +152,7 @@ class Detector():
                     for item in result:
                         item.insert(0, file_size)
                         item.insert(0, f"{frame_num:06d}")
-                        f.write(item.join(" "), "\n")
+                        f.write(' '.join(item), "\n")
 
 
 if __name__ == "__main__":
