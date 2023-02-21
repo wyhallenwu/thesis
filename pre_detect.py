@@ -97,8 +97,8 @@ class Detector():
             constant_rate_factor = int(config[3])
             frame_counter = 0
             config = [width, height, constant_rate_factor]
-            crf_config.append(config)
             if config not in crf_config:
+                crf_config.append(config)
                 path = video_path+'/'+f"{config[0]}_{config[1]}_{config[2]}"
                 if os.path.exists(path):
                     os.makedirs(path)
@@ -117,13 +117,16 @@ class Detector():
 if __name__ == "__main__":
     # run: python pre_detect.py --filepath=test_data/test.flv
     parser = argparse.ArgumentParser()
+    parser.add_argument("--model_type", type=str,
+                        help="yolov5n, yolov5s, yolov5m, yolov5l, yolov5x")
     parser.add_argument("--filepath", type=str, help="test video file path")
     parser.add_argument("--video_path", type=str,
                         help="videos path for save single images")
     args = parser.parse_args()
-    if args.filepath:
-        detector = Detector("yolov5n")
-        detector.test(args.filepath)
-    if args.video_path:
-        detector = Detector("yolov5n")
-        detector.save_single_frame(args.video_path)
+    if args.model_type is not None:
+        if args.filepath:
+            detector = Detector(args.model_type)
+            detector.test(args.filepath)
+        if args.video_path:
+            detector = Detector(args.model_type)
+            detector.save_single_frame(args.video_path)
