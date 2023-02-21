@@ -88,8 +88,6 @@ class Detector():
         files = os.listdir(video_path)
         crf_config = []
         for video_file in tqdm(files, desc="processing"):
-            print(f"file: {video_file}")
-            self.frame_counter = 0
             config = video_file[:-4].split('_')
             width = int(config[0])
             height = int(config[1])
@@ -99,13 +97,16 @@ class Detector():
             config = [width, height, constant_rate_factor]
             if config not in crf_config:
                 crf_config.append(config)
+                print(
+                    f"split and saving file in config: {config[0]}:{config[1]}:{config[2]}")
                 path = video_path+'/'+f"{config[0]}_{config[1]}_{config[2]}"
                 if os.path.exists(path):
+                    print(f"making new folder {path}")
                     os.makedirs(path)
                 cap = cv2.VideoCapture(video_path + "/" + video_file)
                 while(cap.isOpened()):
                     _, frame = cap.read()
-                    if frame is not None:
+                    if frame:
                         frame_counter += 1
                         cv2.imwrite(
                             f"{path}/{frame_counter:06d}.jpg", frame)
@@ -123,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument("--video_path", type=str,
                         help="videos path for save single images")
     args = parser.parse_args()
-    if args.model_type is not None:
+    if args.model_type:
         if args.filepath:
             detector = Detector(args.model_type)
             detector.test(args.filepath)
