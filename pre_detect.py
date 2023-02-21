@@ -22,6 +22,10 @@ class Detector():
         @return:
             result: processing_time, confidence, boxes
         """
+        # TODO: to check
+        frame = cv2.imread(frame)
+        frame = cv2.resize(frame, (1920, 1080), interpolation=cv2.INTER_CUBIC)
+        # ======================
         result = self.model(frame)
         result_table = result.pandas().xyxy[0].iterrows()
         process_time = sum(result.t)
@@ -42,13 +46,13 @@ class Detector():
         # [[(frame_num), process_time, xmin, ymin, xmax, ymax, confidence, class_id, name]]
         return detect_result
 
-    def save(self, result, f):
-        frame_num = result["frame_num"]
-        bytes_in_size = result["size"]
-        accuracy = result["accuracy"]
-        process_time = result["process_time"]
-        f.write(frame_num, " ", bytes_in_size, " ",
-                process_time, " ", accuracy, "\n")
+    # def save(self, result, f):
+    #     frame_num = result["frame_num"]
+    #     bytes_in_size = result["size"]
+    #     accuracy = result["accuracy"]
+    #     process_time = result["process_time"]
+    #     f.write(frame_num, " ", bytes_in_size, " ",
+    #             process_time, " ", accuracy, "\n")
 
     def reset(self):
         self.frame_counter = 0
