@@ -2,7 +2,7 @@
 width=(1920 1280 854 640 426)
 height=(1080 720 480 320 240)
 frame_rate=(30 15 10 5 3 2 1)
-constant_rate_factor=(0 10 20 30 40)
+constant_rate_factor=(10 14 18 22 24 26 28)
 length = ${#width[@]}
 for i in "${!width[@]}";
 do
