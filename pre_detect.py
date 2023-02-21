@@ -135,7 +135,7 @@ class Detector():
             if not os.path.exists(f"{saving_path}/{dir}"):
                 os.makedirs(f"{saving_path}/{dir}")
                 print(f"makeing new folder: {saving_path}/{dir}")
-            with open(f"{saving_path}/{dir}/{dir}_{self.model_type}.csv") as f:
+            with open(f"{saving_path}/{dir}/{dir}_{self.model_type}.csv", 'w') as f:
                 print(f"pre-detection: {dir}")
                 for frame_name in os.listdir(f"{path}/{dir}"):
                     frame_path = f"{path}/{dir}/{frame_name}"
