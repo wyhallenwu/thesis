@@ -16,6 +16,12 @@ class Detector():
         self.frame_counter = 0
 
     def detect(self, frame):
+        """detect single frame and return the result.
+        @params:
+            frame: filename or cv2 image or pytorch image or numpy image or PIL image
+        @return:
+            result: processing_time, confidence, boxes
+        """
         result = self.model(frame)
         result_table = result.pandas().xyxy[0]
         process_time = sum(result.t)
@@ -24,9 +30,9 @@ class Detector():
         y_min = result_table["ymin"]
         x_max = result_table["xmax"]
         y_max = result_table["ymax"]
+        object_name = result_table["name"]
         self.frame_counter += 1
-        # print(self.frame_counter)
-        return process_time, confidence, [x_min, y_min, x_max, y_max]
+        return {"processing_time": process_time, "result": [object_name, confidence, [x_min, y_min, x_max, y_max]]}
 
     def save(self, result, f):
         frame_num = result["frame_num"]
@@ -35,6 +41,9 @@ class Detector():
         process_time = result["process_time"]
         f.write(frame_num, " ", bytes_in_size, " ",
                 process_time, " ", accuracy, "\n")
+
+    def reset(self):
+        self.frame_counter = 0
 
     def mAP(self):
         """compute mean average precision(mAP).
@@ -100,19 +109,42 @@ class Detector():
                 print(
                     f"split and saving file in config: {config[0]}:{config[1]}:{config[2]}")
                 path = video_path+'/'+f"{config[0]}_{config[1]}_{config[2]}"
-                if os.path.exists(path):
+                if not os.path.exists(path):
                     print(f"making new folder {path}")
                     os.makedirs(path)
                 cap = cv2.VideoCapture(video_path + "/" + video_file)
                 while(cap.isOpened()):
                     _, frame = cap.read()
-                    if frame:
+                    if frame is not None:
                         frame_counter += 1
                         cv2.imwrite(
                             f"{path}/{frame_counter:06d}.jpg", frame)
                     else:
                         break
                 cap.release()
+
+    def pre_detect(self, path, saving_path):
+        """preprocess to generate a detection table for each configuration.
+        @params:
+            path: path that contains all processed seperated images
+            saving_path: path that used for store the pre-detection result
+        """
+        for _, dirs, _ in tqdm(os.walk(path), desc="processing"):
+            if not os.path.exists(f"{saving_path}/{dirs}"):
+                os.makedirs(f"{saving_path}/{dirs}")
+                print(f"makeing new folder: {saving_path}/{dirs}")
+            with open(f"{saving_path}/{dirs}/{dirs}.csv") as f:
+                print(f"pre-detection: {dirs}")
+                for frame_name in os.listdir(f"{path}/{dirs}"):
+                    frame_path = f"{path}/{dirs}/{frame_name}"
+                    frame_num = int(frame_name[:-4])
+                    result = self.detect(frame_path)
+                    file_size = os.path.getsize(frame_path)
+                    processing_time = result["processing_time"]
+                    detection_result = result["result"]
+                    for item in detection_result:
+                        f.write(
+                            f"{frame_num:06d} {file_size} {processing_time} {item[0]} {item[1]} {item[2][0]} {item[2][1]} {item[2][2]} {item[2][3]}\n")
 
 
 if __name__ == "__main__":
