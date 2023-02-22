@@ -11,7 +11,7 @@ do
         for crf in ${constant_rate_factor[@]}
         do
             echo ${width[$i]}
-            ../bin/ffmpeg -f image2 -r $fr -i MOT16-04/img1/%6d.jpg -vf scale=${width[$i]}:-1 -c:v libx264 -preset veryslow -crf $crf -threads 0 videos/${width[$i]}_${fr}_${crf}.flv
+            ../bin/ffmpeg -f image2 -r $fr -i MOT16-04/img1/%6d.jpg -vf scale=${width[$i]}:-1 -c:v libx264 -preset veryslow -crf $crf -tune zerolatancy -threads 0 videos/${width[$i]}_${fr}_${crf}.flv
             mkdir videos/${width[$i]}_${fr}_${crf}
             ffmpeg -i videos/${width[$i]}_${fr}_${crf}.flv videos/${width[$i]}_${fr}_${crf}/%6d.jpg
         done

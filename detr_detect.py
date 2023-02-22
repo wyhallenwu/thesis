@@ -3,8 +3,8 @@ import torch
 from PIL import Image
 import requests
 
-url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-image = Image.open(requests.get(url, stream=True).raw)
+# url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+image = Image.open()
 
 processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-101")
 model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-101")
