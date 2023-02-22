@@ -35,7 +35,7 @@ class DetrDetector():
                     target_sizes = torch.tensor([image.size[::-1]])
                     start_time = time.time()
                     results = self.processor.post_process_object_detection(
-                        outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
+                        outputs.item(), target_sizes=target_sizes, threshold=self.threshold)[0]
                     end_time = time.time()
                     process_time = end_time - start_time
                     # write result
