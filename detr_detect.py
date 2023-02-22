@@ -5,6 +5,7 @@ import os
 from tqdm import tqdm
 import cv2
 import argparse
+import time
 
 
 class DetrDetector():
@@ -32,8 +33,11 @@ class DetrDetector():
                     # convert outputs (bounding boxes and class logits) to COCO API
                     # let's only keep detections with score > 0.9
                     target_sizes = torch.tensor([image.size[::-1]])
+                    start_time = time.time()
                     results = self.processor.post_process_object_detection(
                         outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
+                    end_time = time.time()
+                    process_time = end_time - start_time
                     # write result
                     for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
                         box = [round(i, 2) for i in box.tolist()]
@@ -42,7 +46,7 @@ class DetrDetector():
                         #     f"{round(score.item(), 3)} at location {box}"
                         # )
                         f.write(
-                            f"{frame_counter:06d} {round(score.item(), 3)} {self.model.config.id2label[label.item()]} {box[0]} {box[1]} {box[2]} {box[3]}\n")
+                            f"{frame_counter:06d} {process_time} {round(score.item(), 3)} {self.model.config.id2label[label.item()]} {box[0]} {box[1]} {box[2]} {box[3]}\n")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
