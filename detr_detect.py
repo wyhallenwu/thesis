@@ -9,10 +9,11 @@ import time
 
 class DetrDetector():
     def __init__(self, threshold=0.9) -> None:
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.processor = DetrImageProcessor.from_pretrained(
             "facebook/detr-resnet-101")
         self.model = DetrForObjectDetection.from_pretrained(
-            "facebook/detr-resnet-101")
+            "facebook/detr-resnet-101").to(self.device)
         self.threshold = threshold
 
     def detect(self, video_path, saving_path):
