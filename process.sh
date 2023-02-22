@@ -1,8 +1,8 @@
 #!/bin/bash
-width=(1920 1280 854 640 426)
-height=(1080 720 480 320 240)
-frame_rate=(30 15 10 5 3 2 1)
-constant_rate_factor=(10 14 18 22 24 26 28)
+width=(1920 1600 1280 960)
+height=(1080 900 800 600)
+frame_rate=(30 20 10 5)
+constant_rate_factor=(18 21 23 26 28)
 length = ${#width[@]}
 for i in "${!width[@]}";
 do
@@ -10,8 +10,10 @@ do
     do
         for crf in ${constant_rate_factor[@]}
         do
-            echo ${width[$i]} ${height[$i]}
-            ffmpeg -f image2 -r $fr -i MOT16-04/img1/%6d.jpg -s ${width[$i]}x${height[$i]} -c:v libx264 -crf $crf videos/${width[$i]}_${height[$i]}_${fr}_${crf}.flv
+            echo ${width[$i]}
+            ../bin/ffmpeg -f image2 -r $fr -i MOT16-04/img1/%6d.jpg -vf scale=${width[$i]}:-1 -c:v libx264 -preset veryslow -crf $crf -threads 0 videos/${width[$i]}_${fr}_${crf}.flv
+            mkdir videos/${width[$i]}_${fr}_${crf}
+            ffmpeg -i videos/${width[$i]}_${fr}_${crf}.flv videos/${width[$i]}_${fr}_${crf}/%6d.jpg
         done
     done
 done

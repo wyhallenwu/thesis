@@ -106,16 +106,15 @@ class Detector():
         cv2.destroyAllWindows()
 
     def save_single_frame(self, video_path):
-        _, _, files = next(os.walk(video_path))
+        _, _, files = os.walk(video_path)
         crf_config = []
         for video_file in tqdm(files, desc="processing"):
             config = video_file[:-4].split('_')
             width = int(config[0])
-            height = int(config[1])
-            # frame_rate = int(config[2])
-            constant_rate_factor = int(config[3])
+            frame_rate = int(config[1])
+            constant_rate_factor = int(config[2])
             frame_counter = 0
-            config = [width, height, constant_rate_factor]
+            config = [width, frame_rate, constant_rate_factor]
             if config not in crf_config:
                 crf_config.append(config)
                 print(
