@@ -3,7 +3,6 @@ import torch
 from PIL import Image
 import os
 from tqdm import tqdm
-import cv2
 import argparse
 import time
 
@@ -24,7 +23,7 @@ class DetrDetector():
                 os.makedirs(f"{saving_path}/{dir}")
                 print(f"makeing new folder: {saving_path}/{dir}")
             with open(f"{saving_path}/{dir}/{dir}_detr.csv", 'w') as f:
-                for frame_name in sorted(os.listdir(f"{video_path}/{dir}")):
+                for frame_name in tqdm(sorted(os.listdir(f"{video_path}/{dir}")), desc="frame"):
                     frame_counter += 1
                     image = Image.open(f"{video_path}/{dir}/{frame_name}")
                     inputs = self.processor(
