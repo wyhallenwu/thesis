@@ -28,7 +28,7 @@ class DetrDetector():
                     frame_counter += 1
                     image = Image.open(f"{video_path}/{dir}/{frame_name}")
                     inputs = self.processor(
-                        images=image, return_tensors="pt")
+                        images=image, return_tensors="pt").to(self.device)
                     outputs = self.model(**inputs)
                     # convert outputs (bounding boxes and class logits) to COCO API
                     # let's only keep detections with score > 0.9
