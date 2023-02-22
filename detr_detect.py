@@ -32,12 +32,12 @@ class DetrDetector():
                     outputs = self.model(**inputs)
                     # convert outputs (bounding boxes and class logits) to COCO API
                     # let's only keep detections with score > 0.9
-                    target_sizes = torch.tensor([image.size[::-1]])
+                    target_sizes = torch.tensor([image.size[::-1]]).to(self.device)
                     start_time = time.time()
                     results = self.processor.post_process_object_detection(
-                        outputs.item(), target_sizes=target_sizes, threshold=self.threshold)[0]
+                        outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
                     end_time = time.time()
-                    process_time = end_time - start_time
+                    process_time = (end_time - start_time) * 1000
                     # write result
                     for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
                         box = [round(i, 2) for i in box.tolist()]
