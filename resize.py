@@ -17,7 +17,7 @@ def resize(path, rs, saving_path):
 
 def main(frame_path, saving_path):
     for rs in resolution:
-        if os.path.exists(f"{saving_path}/{rs[0]}_{rs[1]}"):
+        if not os.path.exists(f"{saving_path}/{rs[0]}_{rs[1]}"):
             os.makedirs(f"{saving_path}/{rs[0]}_{rs[1]}")
             print(f"making new folder {saving_path}/{rs[0]}_{rs[1]}")
         resize(frame_path, rs, f"{saving_path}/{rs[0]}_{rs[1]}")
