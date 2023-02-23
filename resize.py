@@ -12,7 +12,7 @@ def resize(path, rs, saving_path):
         frame_num = file[:-4]
         frame = cv2.imread(path + '/' + file)
         resized_frame = cv2.resize(frame, rs, interpolation=cv2.INTER_CUBIC)
-        cv2.imwrite(saving_path + '/' + frame_num + '.bpm', resized_frame)
+        cv2.imwrite(saving_path + '/' + frame_num + '.bmp', resized_frame)
 
 
 def main(frame_path, saving_path):
