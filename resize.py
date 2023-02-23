@@ -8,7 +8,7 @@ resolution = [[1600, 900], [1280, 720], [960, 540], [640, 360]]
 
 def resize(path, rs, saving_path):
     files = sorted(os.listdir(path))
-    for file in tqdm(files, desc="processing"):
+    for file in tqdm(files, desc=f"{rs[0]}x{rs[1]}"):
         frame_num = file[:-4]
         frame = cv2.imread(path + '/' + file)
         resized_frame = cv2.resize(frame, rs, interpolation=cv2.INTER_CUBIC)
