@@ -3,7 +3,7 @@ import argparse
 import os
 from tqdm import tqdm
 
-resolution = [[1600, 900], [1280, 720], [960, 540], [640, 360]]
+resolution = [[1920, 1080], [1600, 900], [1280, 720], [960, 540], [640, 360]]
 
 
 def resize(path, rs, saving_path):

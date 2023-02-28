@@ -1,9 +1,6 @@
 #!/bin/bash
-quantizer=(0 10 20 30 40 50)
+quantizer=(10 20 30 40 50)
 frame_rate=(30 20 15 10 5)
-
-python resize.py --frame_path=MOT16-04/img1 --saving_path=IMGS
-
 for q in ${quantizer[@]}
 do
     for fr in ${frame_rate[@]}
