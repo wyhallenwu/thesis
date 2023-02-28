@@ -1,5 +1,5 @@
 #!/bin/bash
-quantizer=(10 20 30 40 50)
+quantizer=(5 15 25 35 45)
 # frame_rate=(30 20 15 10 5)
 for q in ${quantizer[@]}
 do
