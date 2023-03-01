@@ -32,3 +32,7 @@ class Eval():
 
     def test(self):
         print(self.gt["1920x1080"][0])
+
+
+if __name__ == '__main__':
+    eval = Eval()
