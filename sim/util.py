@@ -10,16 +10,17 @@ GT format: frame_id, category, xmin, ymin, xmax, ymax, score, category_id
 
 
 class GT():
-    def __init__(self, gt_acc_path) -> None:
+    def __init__(self, gt_acc_path, model_type) -> None:
         self.gt_acc_path = gt_acc_path
         self.gt = self.read_gt()
+        self.model_type = model_type
 
     def read_gt(self):
-        gt_acc_files = os.listdir(self.gt_acc_path)
+        gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
         gt = {config[:-4]: [] for config in gt_acc_files}
         for gt_acc_file in tqdm(gt_acc_files, desc="gt acc"):
             config = gt_acc_file[:-4]
-            with open(f"{self.gt_acc_path}/{gt_acc_file}", 'r') as f:
+            with open(f"{self.gt_acc_path}/{self.model_type}/{gt_acc_file}", 'r') as f:
                 acc = f.readline().split(' ')
                 bbox = BoundingBox(acc[0], acc[1], float(acc[2]), float(
                     acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
