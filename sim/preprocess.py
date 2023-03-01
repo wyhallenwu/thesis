@@ -8,7 +8,7 @@ CONFIG = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
 
 def resize(src_frame_path, saving_path):
     assert os.path.exists(src_frame_path)
-    frames = os.listdir(src_frame_path)
+    frames = sortedos.listdir(src_frame_path)
     for config in tqdm(CONFIG, desc="resizing"):
         if not os.path.exists(f"{saving_path}/{config[0]}x{config[1]}"):
             os.makedirs(f"{saving_path}/{config[0]}x{config[1]}")
@@ -25,7 +25,7 @@ def generate_gt(detector, gt_path, saving_path):
     assert os.path.exists(saving_path)
     _, dirs, _ = next(os.walk(gt_path))
     for dir in tqdm(dirs, desc="dir"):
-        frames = os.listdir(f"{gt_path}/{dir}")
+        frames = sorted(os.listdir(f"{gt_path}/{dir}"))
         if not os.path.exists(f"{saving_path}/{detector.model_type}"):
             os.makedirs(f"{saving_path}/{detector.model_type}")
         with open(f"{saving_path}/{detector.model_type}/{dir}.csv", 'w') as f:
