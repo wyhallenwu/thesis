@@ -7,7 +7,7 @@ import time
 
 class YoloDetector():
     def __init__(self, model_type):
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_type = model_type
         self.model = torch.hub.load(
             'ultralytics/yolov5', self.model_type, pretrained=True, trust_repo=True)
@@ -21,7 +21,6 @@ class YoloDetector():
         @return:
             result: processing_time, confidence, boxes
         """
-        frame = cv2.imread(frame)
         result = self.model(frame)
         result_table = result.pandas().xyxy[0]
         process_time = sum(result.t)
