@@ -92,8 +92,9 @@ class DetrDetector():
         detection_result = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             box = [round(i, 3) for i in box.tolist()]
+
             detection_result.append(
-                [frame_id, label.item(), box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
+                [frame_id, self.model.config.id2label[label.item()], box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
         return detection_result
 
 # if __name__ == "__main__":
