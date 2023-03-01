@@ -84,10 +84,10 @@ class DetrDetector():
             images=frame, return_tensors="pt").to(self.device)
         start_time = time.time()
         outputs = self.model(**inputs)
+        end_time = time.time()
         target_sizes = torch.tensor([frame.size[::-1]]).to(self.device)
         results = self.processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
-        end_time = time.time()
         process_time = round(end_time - start_time, 3)
         detection_result = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
