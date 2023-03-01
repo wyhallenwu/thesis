@@ -16,6 +16,13 @@ class DetrDetector():
             "facebook/detr-resnet-101").to(self.device)
         self.threshold = threshold
 
+    def detected(self, frame):
+        inputs = self.processor(images=frame, return_tensors="pt").to(self.device)
+        outputs = self.model(**inputs)
+        target_sizes = torch.tensor([frame.size[::-1]]).to(self.device)
+        results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
+
+
     def detect(self, video_path, saving_path):
         _, dirs, _ = next(os.walk(video_path))
         for dir in tqdm(dirs, desc="processing"):
