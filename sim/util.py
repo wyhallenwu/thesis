@@ -57,4 +57,5 @@ class Eval():
 
 
 if __name__ == '__main__':
-    eval = Eval()
+    gt = GT("acc")
+    gt.show()
