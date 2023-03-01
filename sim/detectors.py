@@ -82,9 +82,9 @@ class DetrDetector():
         frame = Image.open(frame)
         inputs = self.processor(
             images=frame, return_tensors="pt").to(self.device)
+        start_time = time.time()
         outputs = self.model(**inputs)
         target_sizes = torch.tensor([frame.size[::-1]]).to(self.device)
-        start_time = time.time()
         results = self.processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
         end_time = time.time()
