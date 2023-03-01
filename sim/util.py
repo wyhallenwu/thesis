@@ -1,11 +1,33 @@
 from podm.metrics import BoundingBox
 from typing import List
 import os
+from tqdm import tqdm
 
 """
 BoundingBox: image, category, xmin, ymin, xmax, ymax, score(None)
 GT format: frame_id, category, xmin, ymin, xmax, ymax, score, category_id 
 """
+
+
+class GT():
+    def __init__(self, gt_acc_path) -> None:
+        self.gt_acc_path = gt_acc_path
+        self.gt = self.read_gt()
+
+    def read_gt(self):
+        gt_acc_files = os.listdir(self.gt_acc_path)
+        gt = {config[:-4]: [] for config in gt_acc_files}
+        for gt_acc_file in tqdm(gt_acc_files, desc="gt acc"):
+            config = gt_acc_file[:-4]
+            with open(f"{self.gt_acc_path}/{gt_acc_file}", 'r') as f:
+                acc = f.readline().split(' ')
+                bbox = BoundingBox(acc[0], acc[1], float(acc[2]), float(
+                    acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
+                gt[config].append(bbox)
+        return gt
+
+    def show(self):
+        print(self.gt["1920x1080"][100].category)
 
 
 class Eval():
