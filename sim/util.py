@@ -17,14 +17,16 @@ class GT():
 
     def read_gt(self):
         gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
-        gt = {config[:-4]: [] for config in gt_acc_files}
+        gt = {file[:-4]: [] for file in gt_acc_files}
         for gt_acc_file in tqdm(gt_acc_files, desc="gt acc"):
             config = gt_acc_file[:-4]
             with open(f"{self.gt_acc_path}/{self.model_type}/{gt_acc_file}", 'r') as f:
-                acc = f.readline().split(' ')
-                bbox = BoundingBox.of_bbox(acc[0], acc[1], float(acc[2]), float(
-                    acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
-                gt[config].append(bbox)
+                lines = f.readlines()
+                for line in lines:
+                    acc = line.split(' ')
+                    bbox = BoundingBox.of_bbox(acc[0], acc[1], float(acc[2]), float(
+                        acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
+                    gt[config].append(bbox)
         return gt
 
     def show(self):
