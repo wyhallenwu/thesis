@@ -22,7 +22,7 @@ class GT():
             config = gt_acc_file[:-4]
             with open(f"{self.gt_acc_path}/{self.model_type}/{gt_acc_file}", 'r') as f:
                 acc = f.readline().split(' ')
-                bbox = BoundingBox(acc[0], acc[1], float(acc[2]), float(
+                bbox = BoundingBox.of_bbox(acc[0], acc[1], float(acc[2]), float(
                     acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
                 gt[config].append(bbox)
         return gt
