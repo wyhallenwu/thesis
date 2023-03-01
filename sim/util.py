@@ -58,5 +58,5 @@ class Eval():
 
 
 if __name__ == '__main__':
-    gt = GT("acc")
+    gt = GT("acc", "detr")
     gt.show()
