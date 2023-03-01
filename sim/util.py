@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 """
 BoundingBox: image, category, xmin, ymin, xmax, ymax, score(None)
-GT format: frame_id, category, xmin, ymin, xmax, ymax, score, category_id 
+GT format: frame_id, category, xmin, ymin, xmax, ymax, score
 """
 
 

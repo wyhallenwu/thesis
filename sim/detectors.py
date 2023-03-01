@@ -69,7 +69,7 @@ class YoloDetector():
 
 
 class DetrDetector():
-    def __init__(self, threshold=0.75) -> None:
+    def __init__(self, threshold=0.8) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = DetrImageProcessor.from_pretrained(
             "facebook/detr-resnet-101")
@@ -88,7 +88,7 @@ class DetrDetector():
         results = self.processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=self.threshold)[0]
         end_time = time.time()
-        process_time = round((end_time - start_time), 3)
+        process_time = round(end_time - start_time, 3)
         detection_result = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             box = [round(i, 3) for i in box.tolist()]
