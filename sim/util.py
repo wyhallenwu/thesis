@@ -12,8 +12,8 @@ GT format: frame_id, category, xmin, ymin, xmax, ymax, score, category_id
 class GT():
     def __init__(self, gt_acc_path, model_type) -> None:
         self.gt_acc_path = gt_acc_path
-        self.gt = self.read_gt()
         self.model_type = model_type
+        self.gt = self.read_gt()
 
     def read_gt(self):
         gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
