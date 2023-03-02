@@ -45,6 +45,12 @@ run the make_traces.py in sim/ via python2 to get simulation traces
 
 ffmpeg -re -i input.mp4 -vcodec libx264 -c copy -f flv rtmp://100.64.0.1:1935/live/test
 
+## setup
+```
+python sim/preprocess.py --src=MOT16-04/img1 --saving=gt
+python sim/preprocess.py --gt_path=gt --saving=acc --model=detr
+```
+
 ## schedule
 
 - [ ] detect all preprocessed video clips with pytorch yolov5 and split them into seperate jpg files and recored related result
