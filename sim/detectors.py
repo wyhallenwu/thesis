@@ -4,7 +4,7 @@ from podm.metrics import BoundingBox
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
 import time
-from sim.util import Evaluator
+from util import Evaluator
 
 
 class YoloDetector():
