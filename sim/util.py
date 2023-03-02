@@ -1,4 +1,4 @@
-from podm.metrics import BoundingBox, get_pascal_voc_metrics
+from podm.metrics import BoundingBox, get_pascal_voc_metrics, MetricPerClass
 from typing import List
 import os
 from tqdm import tqdm
@@ -47,8 +47,7 @@ class Evaluator():
     def evaluate(self, prediction, config, frame_id):
         result = get_pascal_voc_metrics(
             self.gt.get_boundingboxes(config, frame_id), prediction)
-        for cls, metric in result.items():
-            print(f"{cls}:{metric.ap}, {metric.fp}")
+        return result.items(), MetricPerClass.mAP(result)
 
 
 if __name__ == '__main__':

@@ -144,4 +144,14 @@ if __name__ == '__main__':
     gt = Evaluator("acc", "detr", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg")
     result = detr.prediction2bbox(result)
-    gt.evaluate(result, "1920x1080", "000001")
+    result, map = gt.evaluate(result, "1920x1080", "000001")
+    for cls, metric in result:
+        label = metric.label
+        print('ap', metric.ap)
+        print('precision', metric.precision)
+        print('interpolated_recall', metric.interpolated_recall)
+        print('interpolated_precision', metric.interpolated_precision)
+        print('tp', metric.tp)
+        print('fp', metric.fp)
+        print('num_groundtruth', metric.num_groundtruth)
+        print('num_detection', metric.num_detection)
