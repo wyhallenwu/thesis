@@ -22,10 +22,10 @@ class YoloDetector():
         self.model.to(self.device)
         self.frame_counter = 0
 
-    def detect(self, frame, frame_id=None):
+    def detect(self, frame, frame_id):
         """detect single frame and return the result.
         @params:
-            frame: filename or cv2 image or pytorch image or numpy image or PIL image
+            frame: filename
         @return:
             result: processing_time, confidence, boxes
         """
@@ -98,7 +98,7 @@ class DetrDetector():
         self.threshold = threshold
         self.model_type = "detr"
 
-    def detect(self, frame, frame_id=None):
+    def detect(self, frame, frame_id):
         """detect a frame.
         @params:
             frame(str): the filename of the image
@@ -157,7 +157,7 @@ class DetrDetector():
 if __name__ == '__main__':
     detr = DetrDetector()
     gt = Evaluator("acc", "detr", 1050)
-    result, _ = detr.detect("gt/1920x1080/000001.jpg")
+    result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
     result = detr.prediction2bbox(result)
     result, map = gt.evaluate(result, "1920x1080", "000001")
     print(f"map: {map}")
