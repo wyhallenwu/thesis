@@ -1,8 +1,10 @@
 import torch
 import cv2
+from podm.metrics import BoundingBox
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
 import time
+from sim.util import Evaluator
 
 
 class YoloDetector():
@@ -33,10 +35,18 @@ class YoloDetector():
         detection_result = [[frame_id, class_name[i], round(x_min[i], 3), round(y_min[i], 3),
                              round(x_max[i], 3), round(y_max[i], 3), round(
                                  confidence[i], 3), round(process_time, 3)] for i in range(len(confidence))]
-        return detection_result
+        return detection_result, round(process_time, 3)
 
     def reset(self):
         self.frame_counter = 0
+
+    def prediction2bbox(self, detection):
+        bboxes = []
+        for item in detection:
+            bbox = BoundingBox(item[0], item[1], item[2],
+                               item[3], item[4], item[5], item[6])
+            bboxes.append(bbox)
+        return bboxes
 
     # def save_single_frame(self, video_path):
     #     _, _, files = os.walk(video_path)
@@ -96,7 +106,15 @@ class DetrDetector():
                 self.model.config.id2label[label.item()]).replace(' ', '_')
             detection_result.append(
                 [frame_id, class_name, box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
-        return detection_result
+        return detection_result, process_time
+
+    def prediction2bbox(self, detection):
+        bboxes = []
+        for item in detection:
+            bbox = BoundingBox(item[0], item[1], item[2],
+                               item[3], item[4], item[5], item[6])
+            bboxes.append(bbox)
+        return bboxes
 
 # if __name__ == "__main__":
 #     # run: python pre_detect.py --filepath=test_data/test.flv
@@ -123,4 +141,7 @@ class DetrDetector():
 
 if __name__ == '__main__':
     detr = DetrDetector()
-    detr.detect("gt/1920x1080/000001.jpg")
+    gt = Evaluator("acc", "detr", 1050)
+    result = detr.detect("gt/1920x1080/000001.jpg")
+    result = detr.prediction2bbox(result)
+    gt.evaluate(result, "1920x1080", "000001")

@@ -22,7 +22,9 @@ def resize(src_frame_path, saving_path):
 
 
 def generate_gt(detector, gt_path, saving_path):
-    assert os.path.exists(saving_path)
+    if not os.path.exists(saving_path):
+        os.makedirs(saving_path)
+        print(f"making new folder for gt {saving_path}")
     _, dirs, _ = next(os.walk(gt_path))
     for dir in tqdm(dirs, desc="dir"):
         frames = sorted(os.listdir(f"{gt_path}/{dir}"))

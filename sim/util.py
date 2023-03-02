@@ -1,4 +1,4 @@
-from podm.metrics import BoundingBox
+from podm.metrics import BoundingBox, get_pascal_voc_metrics
 from typing import List
 import os
 from tqdm import tqdm
@@ -10,14 +10,16 @@ GT format: frame_id, category, xmin, ymin, xmax, ymax, score
 
 
 class GT():
-    def __init__(self, gt_acc_path, model_type) -> None:
+    def __init__(self, gt_acc_path, model_type, gt_frames_num) -> None:
         self.gt_acc_path = gt_acc_path
         self.model_type = model_type
-        self.gt = self.read_gt()
+        self.gt_frames_num = gt_frames_num
+        self.gt = self.read_gt()  # gt: Dict[config: List[List[BoundingBox]]
 
     def read_gt(self):
         gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
-        gt = {file[:-4]: [] for file in gt_acc_files}
+        gt = {file[:-4]: [[]
+                          for _ in range(self.gt_frames_num)] for file in gt_acc_files}
         for gt_acc_file in tqdm(gt_acc_files, desc="gt acc"):
             config = gt_acc_file[:-4]
             with open(f"{self.gt_acc_path}/{self.model_type}/{gt_acc_file}", 'r') as f:
@@ -26,39 +28,28 @@ class GT():
                     acc = line.strip().split(' ')
                     bbox = BoundingBox.of_bbox(acc[0], acc[1], float(acc[2]), float(
                         acc[3]), float(acc[4]), float(acc[5]), float(acc[6]))
-                    gt[config].append(bbox)
+                    gt[config][int(acc[0]) - 1].append(bbox)
         return gt
 
-    def show(self):
-        print(self.gt["1920x1080"][100].category)
+    def get_boundingboxes(self, config, frame_id):
+        """get_boundingboxes retrieve the Boundingboxes of the corresponding size config."""
+        return self.gt[config][int(frame_id)]
 
 
-class Eval():
-    def __init__(self, gt_path, iou_threshold, frames_num) -> None:
-        self.gt = {}
-        self.predict = None
-        self.gt_path = gt_path
+class Evaluator():
+    def __init__(self, gt_acc_path, model_type, frames_num, iou_threshold=0.5) -> None:
+        self.model_type = model_type
+        self.gt_acc_path = gt_acc_path
+        self.gt = GT(gt_acc_path, self.model_type, frames_num)
         self.iou_threshold = iou_threshold
         self.frames_num = frames_num
-        self.init()
 
-    def init(self):
-        gt_files = os.listdir(self.gt_path)
-        for gt_file in gt_files:
-            config = gt_file[:-4]
-            if config not in self.gt:
-                self.gt[config] = [[] for i in range(self.frames_num)]
-            with open(f"{self.gt_path}/{gt_file}", 'r') as f:
-                parse = f.readline().split(' ')
-                frame_id = int(parse[0])
-                gt_item = BoundingBox.of_bbox(frame_id, parse[1], float(parse[2]), float(
-                    parse[3]), float(parse[4]), float(parse[5]), float(parse[6]))
-                self.gt[config][frame_id].append(gt_item)
-
-    def test(self):
-        print(self.gt["1920x1080"][0])
+    def evaluate(self, prediction: List(BoundingBox), config, frame_id):
+        result = get_pascal_voc_metrics(
+            self.gt.get_boundingboxes(config, frame_id), prediction)
+        for cls, metric in result.items():
+            print(f"{cls}:{metric.ap}, {metric.fp}")
 
 
 if __name__ == '__main__':
-    gt = GT("acc", "detr")
-    gt.show()
+    gt_eval = Evaluator("acc", "detr", 1050)
