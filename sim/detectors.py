@@ -142,6 +142,6 @@ class DetrDetector():
 if __name__ == '__main__':
     detr = DetrDetector()
     gt = Evaluator("acc", "detr", 1050)
-    result = detr.detect("gt/1920x1080/000001.jpg")
+    result, _ = detr.detect("gt/1920x1080/000001.jpg")
     result = detr.prediction2bbox(result)
     gt.evaluate(result, "1920x1080", "000001")
