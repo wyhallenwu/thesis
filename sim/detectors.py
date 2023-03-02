@@ -43,8 +43,8 @@ class YoloDetector():
     def prediction2bbox(self, detection):
         bboxes = []
         for item in detection:
-            bbox = BoundingBox(item[0], item[1], item[2],
-                               item[3], item[4], item[5], item[6])
+            bbox = BoundingBox.of_bbox(item[0], item[1], item[2],
+                                       item[3], item[4], item[5], item[6])
             bboxes.append(bbox)
         return bboxes
 
@@ -111,8 +111,8 @@ class DetrDetector():
     def prediction2bbox(self, detection):
         bboxes = []
         for item in detection:
-            bbox = BoundingBox(item[0], item[1], item[2],
-                               item[3], item[4], item[5], item[6])
+            bbox = BoundingBox.of_bbox(item[0], item[1], item[2],
+                                       item[3], item[4], item[5], item[6])
             bboxes.append(bbox)
         return bboxes
 

@@ -44,7 +44,7 @@ class Evaluator():
         self.iou_threshold = iou_threshold
         self.frames_num = frames_num
 
-    def evaluate(self, prediction: List(BoundingBox), config, frame_id):
+    def evaluate(self, prediction, config, frame_id):
         result = get_pascal_voc_metrics(
             self.gt.get_boundingboxes(config, frame_id), prediction)
         for cls, metric in result.items():
