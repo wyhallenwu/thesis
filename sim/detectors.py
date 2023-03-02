@@ -78,7 +78,7 @@ class DetrDetector():
         self.threshold = threshold
         self.model_type = "detr"
 
-    def detect(self, frame, frame_id):
+    def detect(self, frame, frame_id=None):
         frame = Image.open(frame)
         inputs = self.processor(
             images=frame, return_tensors="pt").to(self.device)
@@ -92,7 +92,8 @@ class DetrDetector():
         detection_result = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             box = [round(i, 3) for i in box.tolist()]
-            class_name = '_'.join(self.model.config.id2label[label.item()])
+            class_name = str(
+                self.model.config.id2label[label.item()]).replace(' ', '_')
             detection_result.append(
                 [frame_id, class_name, box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
         return detection_result
@@ -118,3 +119,8 @@ class DetrDetector():
 #     #     if args.saving_path and args.video_path:
 #     #         detector = Detector(args.model_type)
 #     #         detector.pre_detect(args.video_path, args.saving_path)
+
+
+if __name__ == '__main__':
+    detr = DetrDetector()
+    detr.detect("gt/1920x1080/000001.jpg")

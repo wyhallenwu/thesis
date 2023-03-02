@@ -48,8 +48,10 @@ if __name__ == '__main__':
         "--model", type=str, help="detection model type. yolov5n, yolov5m, yolov5l, yolov5x, detr")
     args = parser.parse_args()
     if args.src and args.saving:
+        # eg. python sim/preprocess.py --src=MOT16-04/img1 --saving=gt
         resize(args.src, args.saving)
     if args.gt_path and args.saving and args.model:
+        # eg. python sim/preprocess.py --gt_path=gt --saving=acc --model=detr
         if args.model[:4] == "yolo":
             detector = YoloDetector(args.model)
         if args.model == "detr":
