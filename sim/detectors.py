@@ -145,6 +145,7 @@ if __name__ == '__main__':
     result, _ = detr.detect("gt/1920x1080/000001.jpg")
     result = detr.prediction2bbox(result)
     result, map = gt.evaluate(result, "1920x1080", "000001")
+    print(f"map: {map}")
     for cls, metric in result:
         label = metric.label
         print('ap', metric.ap)
