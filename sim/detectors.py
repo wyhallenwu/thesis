@@ -8,7 +8,13 @@ from util import Evaluator
 
 
 class YoloDetector():
+    """YoloDetector"""
+
     def __init__(self, model_type):
+        """
+        @params:
+            model_type: yolov5n, yolov5s, yolov5m, yolov5l, yolov5x
+        """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_type = model_type
         self.model = torch.hub.load(
@@ -80,6 +86,10 @@ class YoloDetector():
 
 class DetrDetector():
     def __init__(self, threshold=0.8) -> None:
+        """
+        @params:
+            threshold: filter the result which confidence is lower the threshold
+        """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = DetrImageProcessor.from_pretrained(
             "facebook/detr-resnet-101")
@@ -89,6 +99,11 @@ class DetrDetector():
         self.model_type = "detr"
 
     def detect(self, frame, frame_id=None):
+        """detect a frame.
+        @params:
+            frame(str): the filename of the image
+            frame_id(str): the index of the frame starting from 1 in the format :06d
+        """
         frame = Image.open(frame)
         inputs = self.processor(
             images=frame, return_tensors="pt").to(self.device)
@@ -142,7 +157,7 @@ class DetrDetector():
 if __name__ == '__main__':
     detr = DetrDetector()
     gt = Evaluator("acc", "detr", 1050)
-    result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
+    result, _ = detr.detect("gt/1920x1080/000001.jpg")
     result = detr.prediction2bbox(result)
     result, map = gt.evaluate(result, "1920x1080", "000001")
     print(f"map: {map}")
