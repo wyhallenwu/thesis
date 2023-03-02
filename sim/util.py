@@ -33,7 +33,7 @@ class GT():
 
     def get_boundingboxes(self, config, frame_id):
         """get_boundingboxes retrieve the Boundingboxes of the corresponding size config."""
-        return self.gt[config][int(frame_id)]
+        return self.gt[config][int(frame_id) - 1]
 
 
 class Evaluator():
