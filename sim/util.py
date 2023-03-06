@@ -50,5 +50,13 @@ class Evaluator():
         return result.items(), MetricPerClass.mAP(result)
 
 
+def logger(file_path):
+    def log(msg):
+        with open(file_path, 'a') as f:
+            f.write(msg)
+            f.write('\n')
+    return log
+
+
 if __name__ == '__main__':
     gt_eval = Evaluator("acc", "detr", 1050)
