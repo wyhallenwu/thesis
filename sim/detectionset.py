@@ -1,6 +1,7 @@
 from podm.metrics import BoundingBox
 import os
 from queue import Queue
+from collections import deque
 
 
 class ClientBuffer():
@@ -14,25 +15,11 @@ class ClientBuffer():
     def __len__(self):
         return len(self.transmission_set)
 
-    def push(self, frame_id, xmin, ymin, xmax, ymax, class_name, confidence, process_time):
-        bbox = BoundingBox(frame_id, class_name, xmin,
-                           ymin, xmax, ymax, confidence)
-        self.pool.append(bbox)
-        if self.process_time_map[frame_id] == None:
-            self.process_time_map[frame_id] = process_time
-
-    def retrieve(self, chunk_size, skip):
-        counter = 0
-        frame_set = []
-        while counter < chunk_size:
-            frame_set.append(self.current_frame)
-            self.current_frame = (self.current_frame +
-                                  skip) % len(self.transmission_set) + 1
-            counter += 1
-        return frame_set
-
     def get_video_chunk(self):
         return None if self.buffer.empty() else self.buffer.get()
+
+    def qsize(self):
+        return self.buffer.qsize()
 
     def get_frame_path(self, frame_index):
         return self.dataset_path + "/" + self.transmission_set[frame_index - 1]
