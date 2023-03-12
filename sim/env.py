@@ -41,8 +41,13 @@ class SimEnv(gym.Env):
         self.servers_num = self.config["servers_num"]
         self.networks = Networks(self.servers_num, FCC_PATH)
 
+        # congestion indication
+        self.drain_buffer = False
+
     def step(self, action):
         self.clean_tmp_frames()
+        if self.drain_buffer:
+            self.drain()
         self.take_action(action)
 
     def get_award(self, event):
@@ -56,11 +61,10 @@ class SimEnv(gym.Env):
         # if buffer is full, wait until the buffer is drained
         current_bws = self.networks.next_bws()
         buffer_full = self.client.retrieve(action["skip"])
-        if buffer_full:
-            # drain the buffer
-            self.drain_buffer()
 
-    def drain_buffer(self):
+    def drain(self):
+        if self.client.empty():
+            self.drain_buffer = False
         pass
 
     def reset(self):

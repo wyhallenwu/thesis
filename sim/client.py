@@ -1,5 +1,5 @@
 import numpy as np
-from detectionset import ClientBuffer
+from sim.buffers import ClientBuffer
 import os
 from util import logger
 import cv2
@@ -15,6 +15,12 @@ class Client():
         self.tmp_chunks = tmp_dir + "/chunks"
         self.tmp_chunk_counter = 0
         self.logger = logger(f"{self.tmp_dir}/train.log")
+
+    def full(self):
+        return self.client_buffer.full()
+    
+    def empty(self):
+        return self.client_buffer.empty()
 
     def process_video(self, frames, config):
         """process_video using gstreamer to compress the frames into flv following the configuration(resolution, quantizer)

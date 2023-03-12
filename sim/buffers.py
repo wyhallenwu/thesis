@@ -1,7 +1,6 @@
 from podm.metrics import BoundingBox
 import os
 from queue import Queue
-from collections import deque
 
 
 class ClientBuffer():
@@ -14,6 +13,12 @@ class ClientBuffer():
 
     def __len__(self):
         return len(self.transmission_set)
+    
+    def full(self):
+        return self.buffer.full()
+    
+    def empty(self):
+        return self.buffer.empty()
 
     def get_video_chunk(self):
         return None if self.buffer.empty() else self.buffer.get()
