@@ -3,5 +3,6 @@ import sim
 
 
 env = gym.make('simenv-v0')
-env.step()
+env.reset()
+env.step("test")
 env.close()
