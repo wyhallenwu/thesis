@@ -3,3 +3,4 @@ videos/
 *.pt
 gt/
 gt_table/
+sim/__pycache__/
