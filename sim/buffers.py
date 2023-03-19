@@ -1,4 +1,3 @@
-from podm.metrics import BoundingBox
 import os
 from queue import Queue
 
