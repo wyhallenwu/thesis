@@ -72,7 +72,10 @@ class SimEnv(gym.Env):
         #     self.drain(action)
         # else:
         #     self.take_action(action)
-        return self.observation_space.sample(), 1, True, {}
+        obs = self.observation_space.sample()
+        for k, v in obs.items():
+            print(k, v)
+        return self.observation_space.sample(), 1, True, False, {}
 
     def _get_obs(self):
         pass
