@@ -39,6 +39,9 @@ class GT():
         print("ground truth frames num: ", self.gt_frames_num)
         print("ground truth configs: ", self.gt.keys())
         print("ground truth bbox: ", next(iter(self.gt.values()))[0])
+        print("ground truth bboxes")
+        for box in next(iter(self.gt.values()))[0]:
+            print(box.category, box.score)
 
 
 class Evaluator():
