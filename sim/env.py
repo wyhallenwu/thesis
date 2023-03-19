@@ -72,7 +72,7 @@ class SimEnv(gym.Env):
         #     self.drain(action)
         # else:
         #     self.take_action(action)
-        return {"info": 100}, 1, True, {}
+        return self.observation_space.sample(), 1, True, {}
 
     def _get_obs(self):
         pass
