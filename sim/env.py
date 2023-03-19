@@ -9,6 +9,7 @@ from gym import spaces
 from network import Networks
 # action: [framerate, resolution, quantizer, offloading target]
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
+# timestamp is 2 seconds
 BUFFER_SIZE = 10  # n seconds video chunks
 DATASET_PATH = "MOT16-04"
 TMP_PATH = "tmp"
@@ -37,6 +38,9 @@ class SimEnv(gym.Env):
         self.client = Client(DATASET_PATH, TMP_PATH)
         self.policy = {"skip": 0, "resolution": [
             1920, 1080], "quantizer": 20, "target": 0}
+
+        # transmission
+        self.current_chunk_index = -1
         # network
         self.servers_num = self.config["servers_num"]
         self.networks = Networks(self.servers_num, FCC_PATH)
@@ -46,9 +50,11 @@ class SimEnv(gym.Env):
 
     def step(self, action):
         self.clean_tmp_frames()
+        # if buffer is full, wait until the buffer is drained
         if self.drain_buffer:
-            self.drain()
-        self.take_action(action)
+            self.drain(action)
+        else:
+            self.take_action(action)
 
     def get_award(self, event):
         if event == "buffer_full":
@@ -62,10 +68,19 @@ class SimEnv(gym.Env):
         current_bws = self.networks.next_bws()
         buffer_full = self.client.retrieve(action["skip"])
 
-    def drain(self):
+    def drain(self, action):
         if self.client.empty():
             self.drain_buffer = False
-        pass
+        frames = self.client.get_frames_buffer()
+        chunk_index, chunk_size, gst_time = self.client.process_video(
+            frames, [action["resolution"], action["quantizer"]])
+        self.current_chunk_index = chunk_index
+        # download current chunk
+        # TODO: 每一个timestamp的选择，ms/s
+        sent = 0
+        delay = 0
+        while sent < chunk_size:
+            sent += self.networks.next_bws()[action["target"]]
 
     def reset(self):
         pass

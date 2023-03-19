@@ -35,6 +35,11 @@ class GT():
         """get_boundingboxes retrieve the Boundingboxes of the corresponding size config."""
         return self.gt[config][int(frame_id) - 1]
 
+    def test(self):
+        print("ground truth frames num: ", self.gt_frames_num)
+        print("ground truth configs: ", self.gt.keys())
+        print("ground truth bbox: ", next(iter(self.gt.values))[0])
+
 
 class Evaluator():
     def __init__(self, gt_acc_path, model_type, frames_num, iou_threshold=0.5) -> None:
@@ -60,3 +65,4 @@ def logger(file_path):
 
 if __name__ == '__main__':
     gt_eval = Evaluator("acc", "detr", 1050)
+    gt_eval.gt.test()
