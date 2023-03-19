@@ -34,7 +34,7 @@ class NetworkSim():
                     trace.append(int(bw))
             self.bws.append(trace)
 
-    def step(self, elapsed_time):
+    def step(self, elapsed_time=2):
         return [self.next_bw() for _ in range(elapsed_time)]
 
 
