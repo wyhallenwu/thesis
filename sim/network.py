@@ -75,5 +75,5 @@ class Networks():
 
 
 if __name__ == "__main__":
-    networks = Networks(2, traces_path="dataset/fcc/2021cooked/")
+    networks = Networks(2, traces_path="dataset/fcc/202201cooked/")
     networks.test()

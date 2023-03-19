@@ -50,7 +50,21 @@ ffmpeg -re -i input.mp4 -vcodec libx264 -c copy -f flv rtmp://100.64.0.1:1935/li
 python sim/preprocess.py --src=MOT16-04/img1 --saving=gt
 python sim/preprocess.py --gt_path=gt --saving=acc --model=detr
 ```
+## challenge
+### observation spaces
+1. past k network throughput  
+2. camera buffer size  
+3. past k segment size  
+4. past segment framerate  
+5. past segment resolution  
+6. past segment quantizer  
+
+np.array([k + 1 + k + 1 + 1 + 1])  
+Discrete: 4, 5, 6
+Continuous: 1, 2, 3
 
 ## schedule
 
-- [ ] detect all preprocessed video clips with pytorch yolov5 and split them into seperate jpg files and recored related result
+- [x] detect all preprocessed video clips with pytorch yolov5 and split them into seperate jpg files and recored related result
+- [ ] observation spaces
+
