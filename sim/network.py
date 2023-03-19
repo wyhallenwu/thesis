@@ -46,6 +46,7 @@ class Networks():
         self.links = num
         self.timestamp = 0
         self.step()
+        print("INITIALIZE NETWORKS DONE.")
 
     def step(self):
         """one timestamp elapsed. default step is 2 seconds

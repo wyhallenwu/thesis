@@ -4,7 +4,7 @@ from podm.metrics import BoundingBox
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
 import time
-from util import Evaluator
+from sim.util import Evaluator
 
 
 class YoloDetector():
@@ -21,6 +21,7 @@ class YoloDetector():
             'ultralytics/yolov5', self.model_type, pretrained=True, trust_repo=True)
         self.model.to(self.device)
         self.frame_counter = 0
+        print("BUILD YOLO DETECTOR DONE.")
 
     def detect(self, frame, frame_id):
         """detect single frame and return the result.
@@ -97,6 +98,7 @@ class DetrDetector():
             "facebook/detr-resnet-101").to(self.device)
         self.threshold = threshold
         self.model_type = "detr"
+        print("BUILD DETR DETECTOR DONE.")
 
     def detect(self, frame, frame_id):
         """detect a frame.

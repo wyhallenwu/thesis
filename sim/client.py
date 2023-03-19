@@ -1,7 +1,7 @@
 import numpy as np
 from sim.buffers import ClientBuffer
 import os
-from util import logger
+from sim.util import logger
 import cv2
 import time
 
@@ -23,6 +23,7 @@ class Client():
         self.tmp_chunks = tmp_dir + "/chunks"
         self.tmp_chunk_counter = 0
         self.logger = logger(f"{self.tmp_dir}/train.log")
+        print("BUILD CLIENT DONE.")
 
     def full(self):
         return self.client_buffer.full()

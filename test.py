@@ -1,12 +1,7 @@
-def logger(file):
-    def log(msg):
-        print("log")
-        with open(file, 'a') as f:
-            f.write(msg)
-            f.write('\n')
-    return log
+import gym
+import sim
 
 
-log = logger("test.log")
-log("test")
-log("test2")
+env = gym.make('simenv-v0')
+env.step()
+env.close()

@@ -1,12 +1,10 @@
-import numpy as np
 import os
-import time
-from detectors import DetrDetector, YoloDetector
+from sim.detectors import DetrDetector, YoloDetector
 from sim.util import GT, Evaluator
-from client import Client
+from sim.client import Client
 import gym
 from gym import spaces
-from network import Networks
+from sim.network import Networks
 # action: [framerate, resolution, quantizer, offloading target]
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
 # timestamp is 2 seconds
@@ -16,24 +14,33 @@ TMP_PATH = "tmp"
 TMP_FRAMES = TMP_PATH + "/frames"
 TMP_CHUNKS = TMP_PATH + "/chunks"
 GT_ACC_PATH = "acc"
-FCC_PATH = "202201cooked"
+FCC_PATH = "dataset/fcc/202201cooked"
 RESOLUTION = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
 QUANTIZER = [5, 15, 25, 35, 45]
 SKIP = [0, 1, 2, 4, 5]
 FRAMERATE = [30, 15, 10, 6, 5]
+CLIENT_BUFFER_SIZE = 1000
+SERVER_NUM = 2
 
 
 class SimEnv(gym.Env):
-    def __init__(self, config):
-        self.config = config
+    metadata = {"render_modes": ["human"], "render_fps": 4}
+
+    def __init__(self):
         # networks
-        self.servers_num = self.config["servers_num"]
+        self.servers_num = SERVER_NUM
         self.networks = Networks(self.servers_num, FCC_PATH)
         self.actions_config = self.form_actions(self.servers_num)
         # [skip(5), resolution(4), quantizer(5), links(n)] 5*4*5*n + local
         self.action_space = spaces.Discrete(len(self.actions_config) + 1)
         # TODO: observation spaces
-        self.observation_space = spaces.Dict({"past_throughput": 1})
+        self.observation_space = spaces.Dict(
+            {"past_throughput": spaces.Box(low=0, high=100000, dtype=int),
+             "client_buffer_size": spaces.Box(low=0, high=CLIENT_BUFFER_SIZE, dtype=int),
+             "past_segment_size": spaces.Box(low=0, high=100000),
+             "past_framerate": spaces.Discrete(5),
+             "past_quantizer": spaces.Discrete(5),
+             "past_resolution": spaces.Discrete(5)})
         # detection and evaluator
         self.detector = DetrDetector()
         self.gt = Evaluator(GT_ACC_PATH, self.detector.model_type, 1050)
@@ -46,6 +53,7 @@ class SimEnv(gym.Env):
         self.current_chunk_index = -1
         # congestion indication
         self.drain_buffer = False
+        print("BUILD SIMENV DONE.")
 
     def form_actions(self, links):
         configs = []
@@ -57,12 +65,16 @@ class SimEnv(gym.Env):
         return configs
 
     def step(self, action):
-        self.clean_tmp_frames()
-        # if buffer is full, wait until the buffer is drained
-        if self.drain_buffer:
-            self.drain(action)
-        else:
-            self.take_action(action)
+        print("test")
+        # self.clean_tmp_frames()
+        # # if buffer is full, wait until the buffer is drained
+        # if self.drain_buffer:
+        #     self.drain(action)
+        # else:
+        #     self.take_action(action)
+
+    def _get_obs(self):
+        pass
 
     def get_award(self, event):
         if event == "buffer_full":
@@ -90,7 +102,8 @@ class SimEnv(gym.Env):
         while sent < chunk_size:
             sent += self.networks.next_bws()[action["target"]]
 
-    def reset(self):
+    def reset(self, seed=None):
+        super().reset(seed=seed)
         pass
 
     def clean_tmp_frames(self):
