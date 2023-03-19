@@ -12,7 +12,7 @@ class NetworkSim():
         self.time_step = 0
         self.bws = []
         self.init_fcc_traces(traces_path)
-        self.bw_id = self.bws[random.randint(0, len(self.bws)-1)]
+        self.bw_id = random.randint(0, len(self.bws)-1)
         self.bw = self.bws[self.bw_id]
         self.current_bw = None
 
