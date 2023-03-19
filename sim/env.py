@@ -35,14 +35,14 @@ class SimEnv(gym.Env):
         self.action_space = spaces.Discrete(len(self.actions_config) + 1)
         # TODO: observation spaces
         self.observation_space = spaces.Dict(
-            {"past_throughput": spaces.Box(low=0, high=100000, dtype=int),
-             "client_buffer_size": spaces.Box(low=0, high=CLIENT_BUFFER_SIZE, dtype=int),
-             "past_segment_size": spaces.Box(low=0, high=100000),
+            {"past_throughput": spaces.Discrete(100000),
+             "client_buffer_size": spaces.Discrete(CLIENT_BUFFER_SIZE),
+             "past_segment_size": spaces.Discrete(100000),
              "past_framerate": spaces.Discrete(5),
              "past_quantizer": spaces.Discrete(5),
              "past_resolution": spaces.Discrete(5)})
         # detection and evaluator
-        self.detector = DetrDetector()
+        self.detector = YoloDetector("yolov5x")
         self.gt = Evaluator(GT_ACC_PATH, self.detector.model_type, 1050)
         self.tmp_path = TMP_PATH
         self.client = Client(DATASET_PATH, TMP_PATH)
@@ -65,7 +65,6 @@ class SimEnv(gym.Env):
         return configs
 
     def step(self, action):
-        print("test")
         # self.clean_tmp_frames()
         # # if buffer is full, wait until the buffer is drained
         # if self.drain_buffer:
