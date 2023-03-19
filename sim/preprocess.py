@@ -2,7 +2,7 @@ import os
 import cv2
 from tqdm import tqdm
 import argparse
-from detectors import YoloDetector, DetrDetector
+from sim.detectors import YoloDetector, DetrDetector
 CONFIG = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
 
 
