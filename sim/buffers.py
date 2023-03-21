@@ -19,7 +19,7 @@ class ClientBuffer():
     def empty(self):
         return self.buffer.empty()
 
-    def get_video_chunk(self):
+    def get_chunk_frames_id(self):
         return None if self.buffer.empty() else self.buffer.get()
 
     def qsize(self):

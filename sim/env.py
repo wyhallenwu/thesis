@@ -30,10 +30,10 @@ class SimEnv(gym.Env):
         # networks
         self.servers_num = SERVER_NUM
         self.networks = Networks(self.servers_num, FCC_PATH)
-        self.actions_config = self.form_actions(self.servers_num)
-        # [skip(5), resolution(4), quantizer(5), links(n)] 5*4*5*n + local
-        self.action_space = spaces.Discrete(len(self.actions_config) + 1)
-        # TODO: observation spaces
+        self.actions_mapping = self.form_actions(self.servers_num + 1)
+        # [skip(5), resolution(4), quantizer(5), links(n)] 5*4*5*n
+        self.action_space = spaces.Discrete(len(self.actions_mapping))
+        # TODO: improve
         self.observation_space = spaces.Dict(
             {"past_throughput": spaces.Discrete(100000),
              "client_buffer_size": spaces.Discrete(CLIENT_BUFFER_SIZE),
@@ -42,9 +42,14 @@ class SimEnv(gym.Env):
              "past_quantizer": spaces.Discrete(5),
              "past_resolution": spaces.Discrete(5)})
         # detection and evaluator
-        self.detector = YoloDetector("yolov5x")
-        self.gt = Evaluator(GT_ACC_PATH, self.detector.model_type, 1050)
+        self.remote_detector = DetrDetector()
+        self.local_detector = YoloDetector("yolov5n")
+        self.remote_evaluator = Evaluator(
+            GT_ACC_PATH, self.remote_detector.model_type, 1050)
+        self.local_evaluator = Evaluator(
+            GT_ACC_PATH, self.local_detector.model_type, 1050)
         self.tmp_path = TMP_PATH
+        # client
         self.client = Client(DATASET_PATH, TMP_PATH)
         # default policy
         self.policy = {"skip": 0, "resolution": [
@@ -61,8 +66,29 @@ class SimEnv(gym.Env):
             for q in QUANTIZER:
                 for framerate in FRAMERATE:
                     for id in range(links):
-                        configs.append([resolution, framerate, q, id])
+                        configs.append(
+                            {"resolution": resolution, "framerate": framerate, "quantizer": q, "target": id})
         return configs
+
+    def processed_by_local(self, chunk_index):
+        """current video chunk is processed by local device."""
+        pass
+
+    def update_state(self, action: int):
+        config = self.actions_mapping[action]
+        # capture from video stream
+        if not self.client.retrieve(config["framerate"]):
+            # if buffer is full, drain buffer
+            self.drain_buffer()
+            return
+        # processed by local cnn
+        frames_id = self.client.get_frames_id()
+        chunk_index, chunk_size, processing_time = self.client.process_video(
+            frames_id, [config["resolution"][0], config["resolution"][1], config["quantizer"]])
+        self.current_chunk_index = chunk_index
+        # processed by local detector
+        if config["target"] == 0:
+            pass
 
     def step(self, action):
         # self.clean_tmp_frames()

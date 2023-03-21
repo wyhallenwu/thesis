@@ -28,7 +28,8 @@ class YoloDetector():
         @params:
             frame: filename
         @return:
-            result: processing_time, confidence, boxes
+            detection_result: List[[frame_id, class, xmin, ymin, xmax, ymax, score]]
+            process_time: ms
         """
         result = self.model(frame)
         result_table = result.pandas().xyxy[0]
@@ -44,6 +45,22 @@ class YoloDetector():
                                  confidence[i], 3), round(process_time, 3)] for i in range(len(confidence))]
         return detection_result, round(process_time, 3)
 
+    def detect_video_chunk(self, filename, frames_id):
+        """analyze video chunk and return a List of bboxes of each frame and the processing time of the chunk."""
+        cap = cv2.VideoCapture(filename)
+        frames = []
+        results = []
+        processing_time = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            frames.append(frame)
+        cap.release()
+        for frame, frame_id in zip(frames, frames_id):
+            result, process_time = self.detect(frame, frame_id)
+            results.append(self.prediction2bbox(result))
+            processing_time += process_time
+        return results, processing_time
+
     def reset(self):
         self.frame_counter = 0
 
@@ -54,35 +71,6 @@ class YoloDetector():
                                        item[3], item[4], item[5], item[6])
             bboxes.append(bbox)
         return bboxes
-
-    # def save_single_frame(self, video_path):
-    #     _, _, files = os.walk(video_path)
-    #     crf_config = []
-    #     for video_file in tqdm(files, desc="processing"):
-    #         config = video_file[:-4].split('_')
-    #         width = int(config[0])
-    #         frame_rate = int(config[1])
-    #         constant_rate_factor = int(config[2])
-    #         frame_counter = 0
-    #         config = [width, frame_rate, constant_rate_factor]
-    #         if config not in crf_config:
-    #             crf_config.append(config)
-    #             print(
-    #                 f"split and saving file in config: {config[0]}:{config[1]}:{config[2]}")
-    #             path = video_path+'/'+f"{config[0]}_{config[1]}_{config[2]}"
-    #             if not os.path.exists(path):
-    #                 print(f"making new folder {path}")
-    #                 os.makedirs(path)
-    #             cap = cv2.VideoCapture(video_path + "/" + video_file)
-    #             while(cap.isOpened()):
-    #                 _, frame = cap.read()
-    #                 if frame is not None:
-    #                     frame_counter += 1
-    #                     cv2.imwrite(
-    #                         f"{path}/{frame_counter:06d}.jpg", frame)
-    #                 else:
-    #                     break
-    #             cap.release()
 
 
 class DetrDetector():
@@ -100,13 +88,16 @@ class DetrDetector():
         self.model_type = "detr"
         print("BUILD DETR DETECTOR DONE.")
 
-    def detect(self, frame, frame_id):
+    def detect(self, frame, frame_id, video=False):
         """detect a frame.
         @params:
             frame(str): the filename of the image
             frame_id(str): the index of the frame starting from 1 in the format :06d
         """
-        frame = Image.open(frame)
+        if not video:
+            frame = Image.open(frame)
+        else:
+            frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         inputs = self.processor(
             images=frame, return_tensors="pt").to(self.device)
         start_time = time.time()
@@ -125,6 +116,21 @@ class DetrDetector():
                 [frame_id, class_name, box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
         return detection_result, process_time
 
+    def detect_video_chunk(self, filename, frames_id):
+        cap = cv2.VideoCapture(filename)
+        frames = []
+        results = []
+        processing_time = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            frames.append(frame)
+        cap.release()
+        for frame, frame_id in zip(frames, frames_id):
+            result, process_time = self.detect(frame, frame_id, True)
+            results.append(self.prediction2bbox(result))
+            processing_time += process_time
+        return results, processing_time
+
     def prediction2bbox(self, detection):
         bboxes = []
         for item in detection:
@@ -133,36 +139,14 @@ class DetrDetector():
             bboxes.append(bbox)
         return bboxes
 
-# if __name__ == "__main__":
-#     # run: python pre_detect.py --filepath=test_data/test.flv
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("--model_type", type=str,
-#                         help="yolov5n, yolov5s, yolov5m, yolov5l, yolov5x")
-#     parser.add_argument("--filepath", type=str, help="test video file path")
-#     parser.add_argument("--video_path", type=str,
-#                         help="videos path for save single images")
-#     parser.add_argument("--saving_path", type=str,
-#                         help="pre-detection csv saving path")
-#     args = parser.parse_args()
-#     # if args.model_type:
-#     #     if args.filepath:
-#     #         detector = Detector(args.model_type)
-#     #         detector.test(args.filepath)
-#     #     if args.video_path and args.saving_path is None:
-#     #         detector = Detector(args.model_type)
-#     #         detector.save_single_frame(args.video_path)
-#     #     if args.saving_path and args.video_path:
-#     #         detector = Detector(args.model_type)
-#     #         detector.pre_detect(args.video_path, args.saving_path)
-
 
 if __name__ == '__main__':
     detr = DetrDetector()
     gt = Evaluator("acc", "detr", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
     result = detr.prediction2bbox(result)
-    result, map = gt.evaluate(result, "1920x1080", "000001")
-    print(f"map: {map}")
+    result, mAp = gt.evaluate(result, "1920x1080", "000001")
+    print(f"map: {mAp}")
     for cls, metric in result:
         label = metric.label
         print('ap', metric.ap)

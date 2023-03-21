@@ -31,8 +31,8 @@ class Client():
     def empty(self):
         return self.client_buffer.empty()
 
-    def get_frames_buffer(self):
-        return self.client_buffer.get_video_chunk()
+    def get_frames_id(self):
+        return self.client_buffer.get_chunk_frames_id()
 
     def gstreamer(self, config):
         """process images with gstreamer and return the processing time"""
@@ -46,7 +46,7 @@ class Client():
         """process_video using gstreamer to compress the frames into flv following the configuration(resolution, quantizer)
         @params:
             frames_id: List(frame_id)
-            config:[resolution, quantizer]
+            config:[width, height, quantizer]
         @return:
             chunk_index, chunk_size, processing_time
         """
@@ -63,13 +63,14 @@ class Client():
         self.logger(log_info)
         return self.tmp_chunk_counter, os.path.getsize(f"{self.tmp_chunks}/{self.tmp_chunk_counter:06d}.flv"), gst_time
 
-    def retrieve(self, skip):
+    def retrieve(self, framerate):
         """retrieve frames at every interval skip. if buffer is full, abandon the capture
         @params:
             skip(int): [0, 1, 2, 4, 5] => fps=[30, 15, 10, 6, 5]
         @return:
             bool: return True if buffer is not full else False
         """
+        skip = SKIP_MAPPING[framerate]
         frames_id = self.capture(DEFAULT_FRAMES_NUM / (skip + 1),
                                  skip)  # default frames in each segment is 60
         if not self.client_buffer.buffer.full():
@@ -97,11 +98,15 @@ class Client():
     def step(self, config):
         """step action for each timestamp.
         @params:
-            config: List[width, height, quantizer, framerate]
+            config: Dict[[width, height], quantizer, framerate, target]
         """
-        skip = SKIP_MAPPING[config[3]]
-        if self.full():
-            pass
+        skip = SKIP_MAPPING[config[2]]
+        full_flag = self.retrieve(skip)
+        if not full_flag:
+            return "buffer full"
+        else:
+            frames_id = self.get_frames_id()
+            self.process_video()
 
 
 # class Streams():
