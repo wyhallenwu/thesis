@@ -4,7 +4,7 @@ from podm.metrics import BoundingBox
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
 import time
-from sim.util import Evaluator
+from util import Evaluator
 
 
 class YoloDetector():
@@ -40,7 +40,7 @@ class YoloDetector():
         x_max = result_table["xmax"].values.tolist()
         y_max = result_table["ymax"].values.tolist()
         class_name = result_table["name"].values.tolist()
-        detection_result = [[frame_id, class_name[i], round(x_min[i], 3), round(y_min[i], 3),
+        detection_result = [[frame_id, class_name[i].replace(' ', '_'), round(x_min[i], 3), round(y_min[i], 3),
                              round(x_max[i], 3), round(y_max[i], 3), round(
                                  confidence[i], 3), round(process_time, 3)] for i in range(len(confidence))]
         return detection_result, round(process_time, 3)
