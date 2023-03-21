@@ -8,6 +8,6 @@ do
     for q in ${quantizer[@]}
     do
         echo ${width[$i]}x${height[$i]} ${q}
-        gst-launch-1.0 multifilesrc location=MOT16-04/img1/%06d.jpg start-index=1 caps="image/jpeg,framerate=${fr}/1" ! decodebin ! videoscale ! video/x-raw,width=${width[$i]},height=${height[$i]} ! videoconvert ! x264enc pass=5 speed-preset=1 quantizer=${q} tune=zerolatency threads=8 ! flvmux ! filesink location="gst_videos/${width[$i]}x${height[$i]}_${q}_${fr}.flv"
+        gst-launch-1.0 multifilesrc location=MOT16-04/img1/%06d.jpg start-index=1 caps="image/jpeg,framerate=${fr}/1" ! decodebin ! videoscale ! video/x-raw,width=${width[$i]},height=${height[$i]} ! videoconvert ! x264enc pass=5 speed-preset=1 quantizer=${q} tune=zerolatency threads=8 ! avimux ! filesink location="gst_videos/${width[$i]}x${height[$i]}_${q}_${fr}.avi"
     done
 done

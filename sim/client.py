@@ -38,7 +38,7 @@ class Client():
         """process images with gstreamer and return the processing time"""
         start = time.time()
         os.system(
-            f"gst-launch-1.0 multifilesrc location={self.tmp_frames}/%06d.jpg start-index=1 caps='image/jpeg,framerate={config[3]}/1' ! decodebin ! videoscale ! video/x-raw,width=${config[0]},height=${config[1]} !videoconvert ! x264enc pass=5 speed-preset=1 quantizer=${config[2]} tune=zerolatency threads=8 ! flvmux ! filesink location='{self.tmp_chunks}/{self.tmp_chunk_counter:06d}.flv'")
+            f"gst-launch-1.0 multifilesrc location={self.tmp_frames}/%06d.jpg start-index=1 caps='image/jpeg,framerate={config[3]}/1' ! decodebin ! videoscale ! video/x-raw,width=${config[0]},height=${config[1]} !videoconvert ! x264enc pass=5 speed-preset=1 quantizer=${config[2]} tune=zerolatency threads=8 ! avimux ! filesink location='{self.tmp_chunks}/{self.tmp_chunk_counter:06d}.avi'")
         end = time.time()
         return round((end - start) * 1000, 3)
 
