@@ -57,6 +57,7 @@ class YoloDetector():
                 break
             frames.append(frame)
         cap.release()
+        assert len(frames) == len(frames_id), "video capture wrong."
         for frame, frame_id in zip(frames, frames_id):
             result, process_time = self.detect(frame, frame_id)
             results.append(self.prediction2bbox(result))
