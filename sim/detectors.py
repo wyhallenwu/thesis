@@ -142,7 +142,7 @@ class DetrDetector():
 
 if __name__ == '__main__':
     detr = DetrDetector()
-    yolox = YoloDetector("yolov5x")
+    yolox = YoloDetector("yolov5n")
     gt = Evaluator("acc", "detr", 1050)
     gt_yolo = Evaluator("acc", "yolov5x", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
@@ -174,3 +174,9 @@ if __name__ == '__main__':
         print('fp', metric.fp)
         print('num_groundtruth', metric.num_groundtruth)
         print('num_detection', metric.num_detection)
+
+    results, processing_time = yolox.detect_video_chunk(
+        "10.flv", [f"{i:06d}" for i in range(1, 11)])
+    for result, id in zip(results, [f"{i:06d}" for i in range(1, 11)]):
+        r, mAp = gt_yolo.evaluate(result, id)
+        print(mAp)
