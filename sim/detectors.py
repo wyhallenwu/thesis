@@ -130,6 +130,7 @@ class DetrDetector():
                 break
             frames.append(frame)
         cap.release()
+        assert len(frames) == len(frames_id), "video capture wrong."
         for frame, frame_id in zip(frames, frames_id):
             result, process_time = self.detect(frame, frame_id, True)
             results.append(self.prediction2bbox(result))
@@ -181,7 +182,7 @@ if __name__ == '__main__':
         print('num_detection', metric.num_detection)
 
     results, processing_time = yolox.detect_video_chunk(
-        "10.flv", [f"{i:06d}" for i in range(1, 11)])
+        "10.avi", [f"{i:06d}" for i in range(1, 11)])
     for result, id in zip(results, [f"{i:06d}" for i in range(1, 11)]):
         r, mAp = gt_yolo.evaluate(result, "1920x1080", id)
         print(mAp)
