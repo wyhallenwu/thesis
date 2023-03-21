@@ -146,7 +146,7 @@ if __name__ == '__main__':
     gt = Evaluator("acc", "detr", 1050)
     gt_yolo = Evaluator("acc", "yolov5x", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
-    result_yolo = yolox.detect("gt/1920x1080/000001.jpg", "000001")
+    result_yolo, _ = yolox.detect("gt/1920x1080/000001.jpg", "000001")
     result = detr.prediction2bbox(result)
     result_yolo = yolox.prediction2bbox(result_yolo)
     result, mAp = gt.evaluate(result, "1920x1080", "000001")
