@@ -142,12 +142,29 @@ class DetrDetector():
 
 if __name__ == '__main__':
     detr = DetrDetector()
+    yolox = YoloDetector("yolov5x")
     gt = Evaluator("acc", "detr", 1050)
+    gt_yolo = Evaluator("acc", "yolov5x", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
+    result_yolo = yolox.detect("gt/1920x1080/000001.jpg", "000001")
     result = detr.prediction2bbox(result)
+    result_yolo = yolox.prediction2bbox(result_yolo)
     result, mAp = gt.evaluate(result, "1920x1080", "000001")
-    print(f"map: {mAp}")
+    result_yolo, mAp_yolo = gt_yolo.evaluate(
+        result_yolo, "1920x1080", "000001")
+    print(f"map: {mAp}/{mAp_yolo}")
     for cls, metric in result:
+        label = metric.label
+        print('ap', metric.ap)
+        print('precision', metric.precision)
+        print('interpolated_recall', metric.interpolated_recall)
+        print('interpolated_precision', metric.interpolated_precision)
+        print('tp', metric.tp)
+        print('fp', metric.fp)
+        print('num_groundtruth', metric.num_groundtruth)
+        print('num_detection', metric.num_detection)
+
+    for cls, metric in result_yolo:
         label = metric.label
         print('ap', metric.ap)
         print('precision', metric.precision)
