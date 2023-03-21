@@ -53,6 +53,7 @@ class YoloDetector():
         processing_time = 0
         while cap.isOpened():
             ret, frame = cap.read()
+            assert ret, "read video failed."
             frames.append(frame)
         cap.release()
         for frame, frame_id in zip(frames, frames_id):
