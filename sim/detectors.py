@@ -198,7 +198,7 @@ if __name__ == '__main__':
         print('num_detection', metric.num_detection)
 
     results, processing_time = yolox.detect_video_chunk(
-        "30.avi", [f"{i:06d}" for i in range(1, 31)])
-    for result, id in zip(results, [f"{i:06d}" for i in range(1, 31)]):
-        r, mAp = gt_yolo.evaluate(result, "1920x1080", id)
+        "30.avi", list(range(1, 31)))
+    for id, result in enumerate(results):
+        r, mAp = gt_yolo.evaluate(result, "1920x1080", id + 1)
         print(mAp)
