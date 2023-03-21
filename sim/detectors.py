@@ -4,7 +4,7 @@ from podm.metrics import BoundingBox
 from transformers import DetrImageProcessor, DetrForObjectDetection
 from PIL import Image
 import time
-from util import Evaluator
+from sim.util import Evaluator
 
 
 class YoloDetector():
@@ -27,6 +27,7 @@ class YoloDetector():
         """detect single frame and return the result.
         @params:
             frame: filename
+            frame_id: int
         @return:
             detection_result: List[[frame_id, class, xmin, ymin, xmax, ymax, score]]
             process_time: ms
@@ -40,16 +41,23 @@ class YoloDetector():
         x_max = result_table["xmax"].values.tolist()
         y_max = result_table["ymax"].values.tolist()
         class_name = result_table["name"].values.tolist()
-        detection_result = [[frame_id, class_name[i].replace(' ', '_'), round(x_min[i], 3), round(y_min[i], 3),
+        detection_result = [[f"{frame_id:06d}", class_name[i].replace(' ', '_'), round(x_min[i], 3), round(y_min[i], 3),
                              round(x_max[i], 3), round(y_max[i], 3), round(
                                  confidence[i], 3), round(process_time, 3)] for i in range(len(confidence))]
         return detection_result, round(process_time, 3)
 
     def detect_video_chunk(self, filename, frames_id):
-        """analyze video chunk and return a List of bboxes of each frame and the processing time of the chunk."""
+        """analyze video chunk and return the bboxes of each frames and processing time.
+        @params:
+            filename: video chunk filename
+            frames_id: List[int] index of each frame in the ground truth order
+        @return:
+            bboxes: BoundingBox of each detected frame
+            processing_time: time to analyze the video chunk
+        """
         cap = cv2.VideoCapture(filename)
         frames = []
-        results = []
+        bboxes = []
         processing_time = 0
         while cap.isOpened():
             ret, frame = cap.read()
@@ -60,9 +68,9 @@ class YoloDetector():
         assert len(frames) == len(frames_id), "video capture wrong."
         for frame, frame_id in zip(frames, frames_id):
             result, process_time = self.detect(frame, frame_id)
-            results.append(self.prediction2bbox(result))
+            bboxes.append(self.prediction2bbox(result))
             processing_time += process_time
-        return results, processing_time
+        return bboxes, processing_time
 
     def reset(self):
         self.frame_counter = 0
@@ -95,7 +103,7 @@ class DetrDetector():
         """detect a frame.
         @params:
             frame(str): the filename of the image
-            frame_id(str): the index of the frame starting from 1 in the format :06d
+            frame_id(int): the index of the frame starting from 1 in the format :06d
         """
         if not video:
             frame = Image.open(frame)
@@ -116,13 +124,21 @@ class DetrDetector():
             class_name = str(
                 self.model.config.id2label[label.item()]).replace(' ', '_')
             detection_result.append(
-                [frame_id, class_name, box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
+                [f"{frame_id:06d}", class_name, box[0], box[1], box[2], box[3], round(score.item(), 3), process_time])
         return detection_result, process_time
 
     def detect_video_chunk(self, filename, frames_id):
+        """analyze video chunk and return the bboxes of each frames and processing time.
+        @params:
+            filename: video chunk filename
+            frames_id: List[int] index of each frame in the ground truth order
+        @return:
+            bboxes: BoundingBox of each detected frame
+            processing_time: time to analyze the video chunk
+        """
         cap = cv2.VideoCapture(filename)
         frames = []
-        results = []
+        bboxes = []
         processing_time = 0
         while cap.isOpened():
             ret, frame = cap.read()
@@ -133,9 +149,9 @@ class DetrDetector():
         assert len(frames) == len(frames_id), "video capture wrong."
         for frame, frame_id in zip(frames, frames_id):
             result, process_time = self.detect(frame, frame_id, True)
-            results.append(self.prediction2bbox(result))
+            bboxes.append(self.prediction2bbox(result))
             processing_time += process_time
-        return results, processing_time
+        return bboxes, processing_time
 
     def prediction2bbox(self, detection):
         bboxes = []
@@ -151,13 +167,13 @@ if __name__ == '__main__':
     yolox = YoloDetector("yolov5n")
     gt = Evaluator("acc", "detr", 1050)
     gt_yolo = Evaluator("acc", "yolov5x", 1050)
-    result, _ = detr.detect("gt/1920x1080/000001.jpg", "000001")
-    result_yolo, _ = yolox.detect("gt/1920x1080/000001.jpg", "000001")
+    result, _ = detr.detect("gt/1920x1080/000001.jpg", 1)
+    result_yolo, _ = yolox.detect("gt/1920x1080/000001.jpg", 1)
     result = detr.prediction2bbox(result)
     result_yolo = yolox.prediction2bbox(result_yolo)
-    result, mAp = gt.evaluate(result, "1920x1080", "000001")
+    result, mAp = gt.evaluate(result, "1920x1080", 1)
     result_yolo, mAp_yolo = gt_yolo.evaluate(
-        result_yolo, "1920x1080", "000001")
+        result_yolo, "1920x1080", 1)
     print(f"map: {mAp}/{mAp_yolo}")
     for cls, metric in result:
         label = metric.label

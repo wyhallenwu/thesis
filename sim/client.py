@@ -1,10 +1,8 @@
-import numpy as np
-from sim.buffers import ClientBuffer
 import os
-from sim.util import logger
 import cv2
 import time
-
+from sim.detectors import YoloDetector
+from queue import Queue
 """
 config: [width, height, quantizer, framerate]
 """
@@ -13,26 +11,23 @@ DEFAULT_FRAMES_NUM = 30 * 2
 # fps [30, 15, 10, 6, 5] => [0, 1, 2, 4, 5]
 SKIP_MAPPING = {30: 0, 15: 1, 10: 2, 6: 4, 5: 5}
 
+BUFFER_SIZE = 10
+
 
 class Client():
     def __init__(self, dataset_path, tmp_dir="tmp") -> None:
         self.dataset_path = dataset_path
-        self.client_buffer = ClientBuffer(dataset_path)
+        self.dataset = Dataset(dataset_path)
+        self.buffer = Queue(BUFFER_SIZE)
         self.tmp_dir = tmp_dir  # folder for the tmp compressed videos
         self.tmp_frames = tmp_dir + "/frames"
         self.tmp_chunks = tmp_dir + "/chunks"
-        self.tmp_chunk_counter = 0
-        self.logger = logger(f"{self.tmp_dir}/train.log")
+        self.tmp_chunk_num = 0
+        self.detector = YoloDetector("yolov5n")
         print("BUILD CLIENT DONE.")
 
-    def full(self):
-        return self.client_buffer.full()
-
-    def empty(self):
-        return self.client_buffer.empty()
-
-    def get_frames_id(self):
-        return self.client_buffer.get_chunk_frames_id()
+    def get_chunk_filename(self, chunk_index: int):
+        return self.tmp_chunks + f"/{chunk_index:06d}.avi"
 
     def gstreamer(self, config):
         """process images with gstreamer and return the processing time"""
@@ -43,25 +38,21 @@ class Client():
         return round((end - start) * 1000, 3)
 
     def process_video(self, frames_id, config):
-        """process_video using gstreamer to compress the frames into flv following the configuration(resolution, quantizer)
+        """process_video using gstreamer to compress the frames into avi following the configuration(resolution, quantizer)
         @params:
-            frames_id: List(frame_id)
+            frames_id: List[frame_id:int]
             config:[width, height, quantizer]
         @return:
             chunk_index, chunk_size, processing_time
         """
-        log_info = ""
         # clean the tmp_frames and copy the chunk images to the tmp
         os.system(f"rm -rf {self.tmp_frames}/*")
-        for id, frame_id in enumerate(frames_id):
-            img = cv2.imread(f"{self.dataset_path}/{frame_id}.jpg")
-            cv2.imwrite(f"{self.tmp_frames}/{id+1:06d}.jpg", img)
-            log_info += f"{frame_id} "
+        for frame_id in frames_id:
+            os.system(
+                f"cp {self.dataset_path}/{frame_id:06d}.jpg {self.tmp_frames}/{frame_id:06d}.jpg")
         gst_time = self.gstreamer(config)
-        self.tmp_chunk_counter += 1
-        log_info += f"{self.tmp_chunk_counter} {config[0]}x{config[1]} {gst_time}"
-        self.logger(log_info)
-        return self.tmp_chunk_counter, os.path.getsize(f"{self.tmp_chunks}/{self.tmp_chunk_counter:06d}.flv"), gst_time
+        self.tmp_chunk_num += 1
+        return self.tmp_chunk_num, os.path.getsize(f"{self.tmp_chunks}/{self.tmp_chunk_num:06d}.avi"), gst_time
 
     def retrieve(self, framerate):
         """retrieve frames at every interval skip. if buffer is full, abandon the capture
@@ -73,8 +64,8 @@ class Client():
         skip = SKIP_MAPPING[framerate]
         frames_id = self.capture(DEFAULT_FRAMES_NUM / (skip + 1),
                                  skip)  # default frames in each segment is 60
-        if not self.client_buffer.buffer.full():
-            self.client_buffer.buffer.put(frames_id)
+        if not self.buffer.full():
+            self.buffer.put(frames_id)
             return True
         return False
 
@@ -89,12 +80,13 @@ class Client():
         counter = 0
         frames_id = []
         while counter < chunk_size:
-            frames_id.append(self.current_frame)
-            self.current_frame = (self.current_frame +
-                                  skip) % len(self.client_buffer) + 1
+            frames_id.append(self.dataset.current_frame_id)
+            self.dataset.current_frame_id = (self.dataset.current_frame_id +
+                                             skip) % len(self.dataset.current_frame_id) + 1
             counter += 1
         return frames_id
 
+    # TODO: modify
     def step(self, config):
         """step action for each timestamp.
         @params:
@@ -109,11 +101,10 @@ class Client():
             self.process_video()
 
 
-# class Streams():
-#     def __init__(self, dataset_path, name) -> None:
-#         self.dataset_path = dataset_path
-#         self.frames = sorted(os.listdir(self.dataset_path))
-#         self.name = name
+class Dataset():
+    def __init__(self, dataset_path) -> None:
+        self.files = sorted(os.listdir(dataset_path))
+        self.current_frame_id = 1
 
-#     def __len__(self):
-#         return len(self.frames)
+    def __len__(self):
+        return len(self.files)

@@ -4,12 +4,13 @@ from sim.util import GT, Evaluator
 from sim.client import Client
 import gym
 from gym import spaces
-from sim.network import Networks
+from sim.server import Server
 # action: [framerate, resolution, quantizer, offloading target]
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
 # timestamp is 2 seconds
 BUFFER_SIZE = 10  # n seconds video chunks
-DATASET_PATH = "MOT16-04"
+MOT_DATASET_PATH = "MOT16-04"
+MOT_FRAMES_NUM = 1050
 TMP_PATH = "tmp"
 TMP_FRAMES = TMP_PATH + "/frames"
 TMP_CHUNKS = TMP_PATH + "/chunks"
@@ -24,16 +25,13 @@ SERVER_NUM = 2
 
 
 class SimEnv(gym.Env):
-    metadata = {"render_modes": ["human"], "render_fps": 4}
+    metadata = {"render_modes": ["human"]}
 
     def __init__(self):
-        # networks
-        self.servers_num = SERVER_NUM
-        self.networks = Networks(self.servers_num, FCC_PATH)
-        self.actions_mapping = self.form_actions(self.servers_num + 1)
+        # envs
+        self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
         # [skip(5), resolution(4), quantizer(5), links(n)] 5*4*5*n
         self.action_space = spaces.Discrete(len(self.actions_mapping))
-        # TODO: improve
         self.observation_space = spaces.Dict(
             {"past_throughput": spaces.Discrete(100000),
              "client_buffer_size": spaces.Discrete(CLIENT_BUFFER_SIZE),
@@ -41,26 +39,19 @@ class SimEnv(gym.Env):
              "past_framerate": spaces.Discrete(5),
              "past_quantizer": spaces.Discrete(5),
              "past_resolution": spaces.Discrete(5)})
-        # detection and evaluator
-        self.remote_detector = DetrDetector()
-        self.local_detector = YoloDetector("yolov5n")
-        self.remote_evaluator = Evaluator(
-            GT_ACC_PATH, self.remote_detector.model_type, 1050)
-        self.local_evaluator = Evaluator(
-            GT_ACC_PATH, self.local_detector.model_type, 1050)
-        self.tmp_path = TMP_PATH
         # client
-        self.client = Client(DATASET_PATH, TMP_PATH)
-        # default policy
-        self.policy = {"skip": 0, "resolution": [
-            1920, 1080], "quantizer": 20, "target": 0}
-        # transmission
-        self.current_chunk_index = -1
-        # congestion indication
-        self.drain_buffer = False
+        self.client = Client(MOT_DATASET_PATH, TMP_PATH)
+        # remote servers
+        self.server1 = Server(1, FCC_PATH, "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
+        self.server2 = Server(2, FCC_PATH, "yolov5m",
+                              GT_ACC_PATH, MOT_FRAMES_NUM)
+        # other
+        self.captured_chunk_num = 0
+        self.to_process_chunk_index = 0
+
         print("BUILD SIMENV DONE.")
 
-    def form_actions(self, links):
+    def __build_actions_mapping(self, links):
         configs = []
         for resolution in RESOLUTION:
             for q in QUANTIZER:
@@ -69,10 +60,6 @@ class SimEnv(gym.Env):
                         configs.append(
                             {"resolution": resolution, "framerate": framerate, "quantizer": q, "target": id})
         return configs
-
-    def processed_by_local(self, chunk_index):
-        """current video chunk is processed by local device."""
-        pass
 
     def update_state(self, action: int):
         config = self.actions_mapping[action]
@@ -137,6 +124,3 @@ class SimEnv(gym.Env):
 
     def clean_tmp_frames(self):
         os.system(f"rm -rf {self.client.tmp_frames}/*")
-
-    def generate_observation(self):
-        pass

@@ -32,8 +32,12 @@ class GT():
         return gt
 
     def get_boundingboxes(self, config, frame_id):
-        """get_boundingboxes retrieve the Boundingboxes of the corresponding size config."""
-        return self.gt[config][int(frame_id) - 1]
+        """get_boundingboxes retrieve the Boundingboxes of the corresponding size config.
+        @params:
+            config(str): {width}x{height}
+            frame_id(int): index of frame
+        """
+        return self.gt[config][frame_id - 1]
 
     def test(self):
         print("ground truth frames num: ", self.gt_frames_num)
