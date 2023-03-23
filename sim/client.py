@@ -12,14 +12,14 @@ DEFAULT_FRAMES_NUM = 30 * 2
 # fps [30, 15, 10, 6, 5] => [0, 1, 2, 4, 5]
 SKIP_MAPPING = {30: 0, 15: 1, 10: 2, 6: 4, 5: 5}
 
-BUFFER_SIZE = 10
-
 
 class Client():
-    def __init__(self, dataset_path, tmp_dir="tmp") -> None:
+    def __init__(self, dataset_path, tmp_dir="tmp", buffer_size=2000000) -> None:
         self.dataset_path = dataset_path
+        self.buffer_size = buffer_size
+        self.used_buffer = 0
         self.dataset = Dataset(dataset_path)
-        self.buffer = Queue(BUFFER_SIZE)
+        self.buffer = Queue()
         self.tmp_dir = tmp_dir  # folder for the tmp compressed videos
         self.tmp_frames = tmp_dir + "/frames"
         self.tmp_chunks = tmp_dir + "/chunks"
@@ -74,10 +74,11 @@ class Client():
         skip = SKIP_MAPPING[config["framerate"]]
         frames_id = self.capture(DEFAULT_FRAMES_NUM / (skip + 1),
                                  skip)  # default frames in each segment is 60
-        if not self.buffer.full():
+        if not self.full():
             self.tmp_chunk_num += 1
             chunk_size, encoding_time = self.process_video(
                 frames_id, config, self.tmp_chunk_num)
+            self.used_buffer += chunk_size
             self.buffer.put([self.tmp_chunk_num, frames_id,
                             chunk_size, encoding_time])
             return True
@@ -101,21 +102,7 @@ class Client():
         return frames_id
 
     def _get_obs(self):
-        return self.buffer.qsize()
-
-    # TODO: modify
-    def step(self, config):
-        """given an action step to next timestamp.
-        @params:
-            config: Dict[[width, height], quantizer, framerate, target]
-        """
-        skip = SKIP_MAPPING[config[2]]
-        full_flag = self.retrieve(skip)
-        if not full_flag:
-            return "buffer full"
-        else:
-            frames_id = self.get_frames_id()
-            self.process_video()
+        return self.used_buffer
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
         """current video chunk is processed by local device.
@@ -138,6 +125,9 @@ class Client():
             results.append(result)
             mAps.append(mAp)
         return results, mAps, processing_time
+
+    def full(self):
+        return self.used_buffer <= self.buffer_size
 
 
 class Dataset():

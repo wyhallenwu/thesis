@@ -9,7 +9,7 @@ from sim.server import Server
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
 # timestamp is 2 seconds
 MILLS_PER_SECOND = 1000
-BUFFER_SIZE = 10  # n seconds video chunks
+BUFFER_SIZE = 2000000  # bytes = 2Mb
 MOT_DATASET_PATH = "MOT16-04"
 MOT_FRAMES_NUM = 1050
 TMP_PATH = "tmp"
@@ -41,7 +41,7 @@ class SimEnv(gym.Env):
              "past_quantizer": spaces.Discrete(5),
              "past_resolution": spaces.Discrete(5)})
         # client
-        self.client = Client(MOT_DATASET_PATH, TMP_PATH)
+        self.client = Client(MOT_DATASET_PATH, TMP_PATH, BUFFER_SIZE)
         # remote servers
         self.server1 = Server(1, FCC_PATH, "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
         self.server2 = Server(2, FCC_PATH, "yolov5m",
