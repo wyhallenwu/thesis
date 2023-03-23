@@ -8,6 +8,7 @@ from sim.server import Server
 # action: [framerate, resolution, quantizer, offloading target]
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
 # timestamp is 2 seconds
+MILLS_PER_SECOND = 1000
 BUFFER_SIZE = 10  # n seconds video chunks
 MOT_DATASET_PATH = "MOT16-04"
 MOT_FRAMES_NUM = 1050
@@ -45,9 +46,12 @@ class SimEnv(gym.Env):
         self.server1 = Server(1, FCC_PATH, "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
         self.server2 = Server(2, FCC_PATH, "yolov5m",
                               GT_ACC_PATH, MOT_FRAMES_NUM)
+        self.servers = [self.server1, self.server2]
         # other
         self.captured_chunk_num = 0
         self.to_process_chunk_index = 0
+        self.drain_status = False
+        self.current_chunk_index = 0
 
         print("BUILD SIMENV DONE.")
 
@@ -66,31 +70,48 @@ class SimEnv(gym.Env):
         # capture from video stream
         if not self.client.retrieve(config["framerate"]):
             # if buffer is full, drain buffer
-            self.drain_buffer()
-            return
-        # processed by local cnn
-        frames_id = self.client.get_frames_id()
-        chunk_index, chunk_size, processing_time = self.client.process_video(
-            frames_id, [config["resolution"][0], config["resolution"][1], config["quantizer"]])
-        self.current_chunk_index = chunk_index
-        # processed by local detector
-        if config["target"] == 0:
-            pass
+            results, mAps, analyzing_times, encoding_times, tranmission_times, chunk_counter = self.do_drain_buffer(
+                config)
+            return ["drain", results, mAps, analyzing_times, encoding_times, tranmission_times, chunk_counter]
+        else:
+            results, mAps, analyzing_time, encoding_time, tranmission_time = self.do_chunk(
+                config)
+            time_consume = (analyzing_time + encoding_time +
+                            tranmission_time) / MILLS_PER_SECOND
+            capture_chunks = int(time_consume) // 2
+            return ["normal", results, mAps, analyzing_time, encoding_time, tranmission_time, capture_chunks]
+
+    def do_chunk(self, config):
+        """sending and analyzing a single chunk.
+        @params:
+            config:Dict[resolution, framerate, quantizer, target]
+        @returns:
+            results(List): metrics evaluation result of each frame in the chunk
+            mAps(List): mAp of each frame
+            analyzing_time(float): analyzing time of the chunk
+            encoding_time(int): milliseconds time for encoding the frames into a chunk
+            tranmission_time(float): transmission time for sending the chunk from client to server  
+        """
+        chunk_index, frames_id, chunk_size, encoding_time = self.client.get_chunk()
+        server = self.servers[config["target"]]
+        transmission_time = 0
+        to_send_bytes = chunk_size
+        results, mAps, analyzing_time = server.analyze_video_chunk(
+            f"{self.client.tmp_chunks}/{chunk_index:06d}.avi", frames_id, config["resolution"])
+        while to_send_bytes > 0:
+            bws, throughputs = server.step_network()
+            transmission_time += server.rtt + len(bws)
+            to_send_bytes -= throughputs
+        return results, mAps, analyzing_time, encoding_time, transmission_time
 
     def step(self, action):
-        # self.clean_tmp_frames()
-        # # if buffer is full, wait until the buffer is drained
-        # if self.drain_buffer:
-        #     self.drain(action)
-        # else:
-        #     self.take_action(action)
         obs = self.observation_space.sample()
         for k, v in obs.items():
             print(k, v)
         return self.observation_space.sample(), 1, True, False, {}
 
-    def _get_obs(self):
-        pass
+    def _get_obs(self, action):
+        self.update_state(action)
 
     def get_award(self, event):
         if event == "buffer_full":
@@ -104,19 +125,40 @@ class SimEnv(gym.Env):
         current_bws = self.networks.next_bws()
         buffer_full = self.client.retrieve(action["skip"])
 
-    def drain(self, action):
-        if self.client.empty():
-            self.drain_buffer = False
-        frames = self.client.get_frames_buffer()
-        chunk_index, chunk_size, gst_time = self.client.process_video(
-            frames, [action["resolution"], action["quantizer"]])
-        self.current_chunk_index = chunk_index
-        # download current chunk
-        # TODO: 每一个timestamp的选择，ms/s
-        sent = 0
-        delay = 0
-        while sent < chunk_size:
-            sent += self.networks.next_bws()[action["target"]]
+    def do_drain_buffer(self, config):
+        """when buffer is full, drain buffer and analyze all chunks in the buffer and then do next step.
+        @param:
+            config: Dict[resolution, framerate, quantizer, target]
+        @return:
+            results(List): wrapped result of earh chunk(ap, precision, interpolated_recall, interpolated_precision, tp, fp, num_groundtruth, num_detection)
+            mAps(List): mAp of each chunk
+            analyze_t(List): analyzing time of the chunks
+            encoding_t(List): compressing time and encoding time of each chunk
+            tranmission_time(int): time of the draining
+            chunk_counter(int): chunks num drained
+        """
+        results, mAps, analyze_time, encoding_time = [], [], [], []
+        transmission_time = 0
+        chunk_counter = 0
+        bytes_to_send = 0
+        server = self.servers[config["target"]]
+        rtt = server.rtt
+        while self.client.buffer.empty():
+            chunk_index, frames_id, chunk_size, processing_time = self.client.get_chunk()
+            self.current_chunk_index = chunk_index
+            result, mAp, analyzing_time = server.analyze_video_chunk(
+                f"{self.client.tmp_chunks}/{chunk_index:06d}.avi", frames_id, config["resolution"])
+            results.append(result)
+            mAps.append(mAp)
+            analyze_time.append(analyzing_time)
+            encoding_time.append(processing_time)
+            bytes_to_send += chunk_size
+            chunk_counter += 1
+        while bytes_to_send > 0:
+            bws, throughputs = server.step_network()
+            transmission_time += len(bws)
+            bytes_to_send -= throughputs
+        return results, mAps, analyze_time, encoding_time, transmission_time + chunk_counter * rtt, chunk_counter
 
     def reset(self, seed=None):
         super().reset(seed=seed)

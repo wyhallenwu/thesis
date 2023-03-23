@@ -15,6 +15,7 @@ class Server():
             self.detector = DetrDetector()
         self.evaluator = Evaluator(gt_acc_path, model_type, frames_num)
         self.rtt = random.randint(60, 80)
+        self.process_chunks_ids = []
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
         """current video chunk is processed by local device.
@@ -27,6 +28,7 @@ class Server():
             mAps: mAp of each frame
             processing_time: process time of the whole chunk
         """
+        self.process_chunks_ids.append(int(chunk_filename[:6]))
         bboxes, processing_time = self.detector.detect_video_chunk(
             chunk_filename, frames_id)
         mAps = []
