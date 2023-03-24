@@ -20,6 +20,9 @@ class NetworkSim():
         self.current_bw = self.bw[self.time_step]
         return self.current_bw
 
+    def get_current_bw(self):
+        return self.current_bw
+
     def init_fcc_traces(self, fcc_cooked_path):
         files = os.listdir(fcc_cooked_path)
         for file in files:

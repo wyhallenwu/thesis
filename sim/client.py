@@ -12,6 +12,8 @@ DEFAULT_FRAMES_NUM = 30 * 2
 # fps [30, 15, 10, 6, 5] => [0, 1, 2, 4, 5]
 SKIP_MAPPING = {30: 0, 15: 1, 10: 2, 6: 4, 5: 5}
 
+# TODO: 能耗
+
 
 class Client():
     def __init__(self, dataset_path, tmp_dir="tmp", buffer_size=2000000) -> None:
@@ -37,6 +39,7 @@ class Client():
             encoding_time: encoding process time
         """
         chunk_index, frames_id, chunk_size, encoding_time = self.buffer.get()
+        self.used_buffer -= chunk_size
         return chunk_index, frames_id, chunk_size, encoding_time
 
     def gstreamer(self, config, chunk_index):
@@ -128,6 +131,9 @@ class Client():
 
     def full(self):
         return self.used_buffer <= self.buffer_size
+
+    def get_buffer_vacancy(self):
+        return self.buffer_size - self.used_buffer
 
 
 class Dataset():
