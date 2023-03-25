@@ -62,12 +62,18 @@ class Evaluator():
         return result.items(), MetricPerClass.mAP(result)
 
 
-def logger(file_path):
-    def log(msg):
-        with open(file_path, 'a') as f:
-            f.write(msg)
-            f.write('\n')
-    return log
+def energy_consuming(frames_num, resolution, local: bool):
+    """energy consuming of wrapping and sending one chunk.
+    following the setting of paper: Joint Configuration Adaptation and Bandwidth Allocation for Edge-based Real-time Video Analytics
+    """
+    mu = 5  # 5j/frame
+    gamma = 5e-6
+    alpha = 1
+    width, height = resolution
+    processing_energy = mu * frames_num if local else 0
+    transmission_energy = alpha * gamma * \
+        frames_num * (width * height * 8) ** 2 if not local else 0
+    return processing_energy, transmission_energy
 
 
 if __name__ == '__main__':

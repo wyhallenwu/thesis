@@ -117,6 +117,8 @@ class Client():
             results: wrapped result of earh frame(ap, precision, interpolated_recall, interpolated_precision, tp, fp, num_groundtruth, num_detection)
             mAps: mAp of each frame
             processing_time: process time of the whole chunk
+            processing_energy: j/chunk energy cost of processing one chunk
+            transmission_energy: j/chunk energy cost of transmitting one chunk
         """
         bboxes, processing_time = self.detector.detect_video_chunk(
             chunk_filename, frames_id)
@@ -134,6 +136,9 @@ class Client():
 
     def get_buffer_vacancy(self):
         return self.buffer_size - self.used_buffer
+
+    def empty(self):
+        return self.get_buffer_vacancy == 0
 
 
 class Dataset():
