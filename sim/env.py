@@ -248,13 +248,13 @@ class SimEnv(gym.Env):
     #     # return results, mAps, analyze_time, encoding_time, transmission_time + chunk_counter * rtt, chunk_counter, average_bws
 
     def reset(self, seed=None):
-        pass
-
-    def clean_tmp_frames(self):
-        os.system(f"rm -rf {self.client.tmp_frames}/*")
+        self.__init__()
 
     def truncated(self):
         return self.steps_count > MAX_STEPS or self.skipped_capture_count > SKIP_THRESHOLD
 
     def done(self):
         return self.client.done()
+
+    def close(self):
+        pass

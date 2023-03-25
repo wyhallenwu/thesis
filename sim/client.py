@@ -63,6 +63,8 @@ class Client():
             os.system(
                 f"cp {self.dataset_path}/{frame_id:06d}.jpg {self.tmp_frames}/{frame_id:06d}.jpg")
         gst_time = self.gstreamer(config, chunk_index)
+        # clean up the tmp frames file
+        os.system(f"rm -rf {self.tmp_frames}/*")
         return os.path.getsize(f"{self.tmp_chunks}/{chunk_index:06d}.avi"), gst_time
 
     def retrieve(self, config):

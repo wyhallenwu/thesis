@@ -1,8 +1,3 @@
-import gym
-import sim
+from sim.env import SimEnv
 
-
-env = gym.make('simenv-v0')
-env.reset()
-env.step("test")
-env.close()
+env = SimEnv()
