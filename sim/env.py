@@ -28,7 +28,7 @@ CLIENT_BUFFER_SIZE = 2000000
 SERVER_NUM = 2
 BANDWIDTH_BOUND = 1000000
 BYTES_IN_MB = 1000000
-END_THRESHOLD = 20
+SKIP_THRESHOLD = 10
 MAX_STEPS = 500
 
 
@@ -57,10 +57,8 @@ class SimEnv(gym.Env):
         self.servers = [self.server1, self.server2]
         # other
         self.steps_count = 0
-        self.captured_chunk_num = 0
-        self.to_process_chunk_index = 0
+        self.skipped_capture_count = 0
         self.drain_status = False
-        self.current_chunk_index = 0
         print("BUILD SIMENV DONE.")
 
     def __build_actions_mapping(self, links):
@@ -193,12 +191,14 @@ class SimEnv(gym.Env):
             truncated(bool):
             info(dict):
         """
+        self.steps_count += 1
         config = self.actions_mapping[action]
         state = self.update_state(config)
         obs = self._get_obs(state, config)
         reward = self._get_reward(state, config)
-        obs = self.observation_space.sample()
-        return obs, reward, True, False, {}
+        truncated = self.truncated()
+        done = self.done()
+        return obs, reward, True, False, state
 
     # def do_drain_buffer_chunk(self, config):
     #     """when buffer is full, drain buffer and analyze all chunks in the buffer and then do next step.
@@ -248,11 +248,13 @@ class SimEnv(gym.Env):
     #     # return results, mAps, analyze_time, encoding_time, transmission_time + chunk_counter * rtt, chunk_counter, average_bws
 
     def reset(self, seed=None):
-        super().reset(seed=seed)
         pass
 
     def clean_tmp_frames(self):
         os.system(f"rm -rf {self.client.tmp_frames}/*")
 
     def truncated(self):
-        return self.steps_count > MAX_STEPS or (self.captured_chunk_num - self.current_chunk_index) > END_THRESHOLD
+        return self.steps_count > MAX_STEPS or self.skipped_capture_count > SKIP_THRESHOLD
+
+    def done(self):
+        return self.client.done()

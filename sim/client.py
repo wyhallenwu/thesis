@@ -12,8 +12,6 @@ DEFAULT_FRAMES_NUM = 30 * 2
 # fps [30, 15, 10, 6, 5] => [0, 1, 2, 4, 5]
 SKIP_MAPPING = {30: 0, 15: 1, 10: 2, 6: 4, 5: 5}
 
-# TODO: 能耗
-
 
 class Client():
     def __init__(self, dataset_path, tmp_dir="tmp", buffer_size=2000000) -> None:
@@ -139,6 +137,10 @@ class Client():
 
     def empty(self):
         return self.get_buffer_vacancy == 0
+
+    def done(self):
+        # TODO: consider ending case
+        return True
 
 
 class Dataset():
