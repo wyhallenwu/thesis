@@ -1,5 +1,5 @@
 import tianshou as ts
-from env import SimEnv
+from sim.env import SimEnv
 import torch
 import numpy as np
 from torch import nn

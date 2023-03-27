@@ -13,7 +13,7 @@ class Server():
             self.detector = YoloDetector(model_type)
         else:
             self.detector = DetrDetector()
-        self.evaluator = Evaluator(gt_acc_path, model_type, frames_num)
+        self.evaluator = Evaluator(gt_acc_path, "yolov5x", frames_num)
         self.rtt = random.randint(60, 80)
         self.process_chunks_ids = []
 
