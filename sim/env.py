@@ -247,10 +247,11 @@ class SimEnv(gymnasium.Env):
     #     # average_bws = np.mean(itertools.chain.from_iterable(bws))
     #     # return results, mAps, analyze_time, encoding_time, transmission_time + chunk_counter * rtt, chunk_counter, average_bws
 
-    def reset(self, seed=None):
+    def reset(self):
         self.__init__()
         os.system(f"rm -rf {self.client.tmp_chunks}/*")
         os.system(f"rm -rf {self.client.tmp_frames}/*")
+        return self.observation_space.sample(), {}
 
     def truncated(self):
         return self.steps_count > MAX_STEPS or self.skipped_capture_count > SKIP_THRESHOLD
