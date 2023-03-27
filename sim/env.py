@@ -13,7 +13,7 @@ from collections import OrderedDict
 # timestamp is 2 seconds
 MILLS_PER_SECOND = 1000
 BUFFER_SIZE = 2000000  # bytes = 2Mb
-MOT_DATASET_PATH = "MOT16-04"
+MOT_DATASET_PATH = "MOT16-04/img1"
 MOT_FRAMES_NUM = 1050
 TMP_PATH = "tmp"
 TMP_FRAMES = TMP_PATH + "/frames"

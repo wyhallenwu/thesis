@@ -19,7 +19,7 @@ class Client():
         self.buffer_size = buffer_size
         self.used_buffer = 0
         self.dataset = Dataset(dataset_path)
-        self.buffer = Queue()
+        self.buffer = deque()
         self.tmp_dir = tmp_dir  # folder for the tmp compressed videos
         self.tmp_frames = tmp_dir + "/frames"
         self.tmp_chunks = tmp_dir + "/chunks"
@@ -36,7 +36,7 @@ class Client():
             chunk_size: bytes of chunk
             encoding_time: encoding process time
         """
-        chunk_index, frames_id, chunk_size, encoding_time = self.buffer.get()
+        chunk_index, frames_id, chunk_size, encoding_time = self.buffer.popleft()
         self.used_buffer -= chunk_size
         return chunk_index, frames_id, chunk_size, encoding_time
 
@@ -82,8 +82,8 @@ class Client():
             chunk_size, encoding_time = self.process_video(
                 frames_id, config, self.tmp_chunk_num)
             self.used_buffer += chunk_size
-            self.buffer.put([self.tmp_chunk_num, frames_id,
-                            chunk_size, encoding_time])
+            self.buffer.append([self.tmp_chunk_num, frames_id,
+                                chunk_size, encoding_time])
             return True
         return False
 
@@ -100,7 +100,7 @@ class Client():
         while counter < chunk_size:
             frames_id.append(self.dataset.current_frame_id)
             self.dataset.current_frame_id = (self.dataset.current_frame_id +
-                                             skip) % len(self.dataset.current_frame_id) + 1
+                                             skip) % len(self.dataset) + 1
             counter += 1
         return frames_id
 
@@ -132,7 +132,7 @@ class Client():
         return results, mAps, processing_time
 
     def full(self):
-        return self.used_buffer <= self.buffer_size
+        return self.used_buffer >= self.buffer_size
 
     def get_buffer_vacancy(self):
         return self.buffer_size - self.used_buffer
