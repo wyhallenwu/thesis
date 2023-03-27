@@ -48,17 +48,17 @@ class SimEnv(gymnasium.Env):
              "past_quantizer": spaces.Discrete(5),
              "past_resolution": spaces.Discrete(4),
              "drain": spaces.Discrete(1)})
-        # # client
-        # self.client = Client(MOT_DATASET_PATH, TMP_PATH, BUFFER_SIZE)
-        # # remote servers
-        # self.server1 = Server(1, FCC_PATH, "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
-        # self.server2 = Server(2, FCC_PATH, "yolov5m",
-        #                       GT_ACC_PATH, MOT_FRAMES_NUM)
-        # self.servers = [self.server1, self.server2]
-        # # other
-        # self.steps_count = 0
-        # self.skipped_capture_count = 0
-        # self.drain_status = False
+        # client
+        self.client = Client(MOT_DATASET_PATH, TMP_PATH, BUFFER_SIZE)
+        # remote servers
+        self.server1 = Server(1, FCC_PATH, "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
+        self.server2 = Server(2, FCC_PATH, "yolov5m",
+                              GT_ACC_PATH, MOT_FRAMES_NUM)
+        self.servers = [self.server1, self.server2]
+        # other
+        self.steps_count = 0
+        self.skipped_capture_count = 0
+        self.drain_status = False
         print("BUILD SIMENV DONE.")
 
     def __build_actions_mapping(self, links):
