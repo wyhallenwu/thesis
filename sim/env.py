@@ -128,7 +128,7 @@ class SimEnv(gymnasium.Env):
             "average_bws"(int): average bandwidth to send the chunk  
         """
         # capture from video stream
-        capture_success = self.client.retrieve(config["framerate"])
+        capture_success = self.client.retrieve(config)
         if not capture_success:
             self.drain_status = True
         if self.drain_status and self.client.empty():
