@@ -32,7 +32,7 @@ def generate_gt(detector, gt_path, saving_path):
             os.makedirs(f"{saving_path}/{detector.model_type}")
         with open(f"{saving_path}/{detector.model_type}/{dir}.csv", 'w') as f:
             for frame in frames:
-                frame_id = frame.split('.')[0]
+                frame_id = int(frame.split('.')[0])
                 result, processing_time = detector.detect(
                     f"{gt_path}/{dir}/{frame}", frame_id)
                 for item in result:
