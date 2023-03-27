@@ -21,7 +21,7 @@ def run():
     optim = torch.optim.Adam(ac.parameters(), lr=1e-3)
     dist = torch.distributions.Categorical
     policy = ts.policy.PPOPolicy(
-        actor, critic, optim, dist, action_shape=action_shape)
+        actor, critic, optim, dist)
     train_collector = ts.data.Collector(
         policy, train_env, ts.data.ReplayBuffer(200), exploration_noise=True)
     test_collector = ts.data.Collector(
