@@ -249,6 +249,8 @@ class SimEnv(gym.Env):
 
     def reset(self, seed=None):
         self.__init__()
+        os.system(f"rm -rf {self.client.tmp_chunks}/*")
+        os.system(f"rm -rf {self.client.tmp_frames}/*")
 
     def truncated(self):
         return self.steps_count > MAX_STEPS or self.skipped_capture_count > SKIP_THRESHOLD
