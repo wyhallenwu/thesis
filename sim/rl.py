@@ -26,8 +26,8 @@ class Net(nn.Module):
 def run():
     train_env = SimEnv()
     test_env = SimEnv()
-    state_shape = env.observation_space.shape
-    action_shape = env.action_space.shape
+    state_shape = train_env.observation_space.shape
+    action_shape = train_env.action_space.shape
     net = Net(state_shape, action_shape)
     optim = torch.optim.Adam(net.parameters(), lr=1e-3)
     policy = ts.policy.DQNPolicy(
