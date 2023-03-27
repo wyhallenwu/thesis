@@ -5,16 +5,15 @@ from sim.env import SimEnv
 import torch
 import numpy as np
 from torch import nn
+from gymnasium.wrappers import FlattenObservation
 
 
 def run():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    train_env = SimEnv()
-    test_env = SimEnv()
+    train_env = FlattenObservation(SimEnv())
+    test_env = FlattenObservation(SimEnv())
     state_shape = train_env.observation_space.shape
     action_shape = train_env.action_space.shape
-    print(state_shape)
-    print(action_shape)
     net = Net(state_shape, hidden_sizes=[64, 64], device=device)
     actor = Actor(net, train_env.action_space.shape, device=device).to(device)
     critic = Critic(net, device=device).to(device)
