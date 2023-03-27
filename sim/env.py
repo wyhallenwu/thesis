@@ -247,7 +247,7 @@ class SimEnv(gymnasium.Env):
     #     # average_bws = np.mean(itertools.chain.from_iterable(bws))
     #     # return results, mAps, analyze_time, encoding_time, transmission_time + chunk_counter * rtt, chunk_counter, average_bws
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         self.__init__()
         os.system(f"rm -rf {self.client.tmp_chunks}/*")
         os.system(f"rm -rf {self.client.tmp_frames}/*")
