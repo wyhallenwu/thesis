@@ -27,8 +27,6 @@ def run():
         actor, critic, optim, dist)
     train_collector = ts.data.Collector(
         policy, train_env, ts.data.ReplayBuffer(200), exploration_noise=True)
-    # test_collector = ts.data.Collector(
-    #     policy, test_env, exploration_noise=True)
     result = ts.trainer.onpolicy_trainer(
         policy=policy, train_collector=train_collector, test_collector=None,
         max_epoch=10, step_per_epoch=1000,

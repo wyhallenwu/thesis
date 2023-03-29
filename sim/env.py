@@ -40,8 +40,8 @@ class SimEnv(gymnasium.Env):
         self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
         self.action_space = spaces.Discrete(len(self.actions_mapping))
         self.observation_space = spaces.Dict({
-            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2,), dtype=float),
-            "past_bws_std": spaces.Box(0, 1, shape=(2, ), dtype=float),
+            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
+            "past_bws_std": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
             "available_buffer_size": spaces.Box(-2 * BUFFER_SIZE, 2 * BUFFER_SIZE, dtype=int),
             "chunk_size": spaces.Box(0, 2 * BUFFER_SIZE, dtype=int)
         })
@@ -137,8 +137,9 @@ class SimEnv(gymnasium.Env):
             self.client.retrieve(config)
             self.chunk_count += 1
             bws, throughputs = self.servers.step_networks()
-            return {"empty": True, "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
-                    "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1])}
+            return {"empty": True, "drain": self.drain_mode, "mAps": 0,
+                    "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
+                    "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1]), "chunk_size": 0}
 
         results, mAps, analyzing_time, encoding_time, tranmission_time, \
             [bws_mean1, bws_mean2, bws_std1, bws_std2], chunk_index, frames_id, \
@@ -154,7 +155,8 @@ class SimEnv(gymnasium.Env):
             self.skipped_chunk_count += 1 if self.drain_mode else 0
         if self.drain_mode and self.client.empty():
             self.drain_mode = False
-        return {"empty": False, "drain": self.drain_mode, "results": results, "mAps": mAps,
+        # remove "results" in the return state
+        return {"empty": False, "drain": self.drain_mode, "mAps": mAps,
                 "analyzing_time": analyzing_time, "encoding_time": encoding_time,
                 "transmission_time": tranmission_time, "capture_chunks": capture_chunks,
                 "bws_mean1": bws_mean1, "bws_mean2": bws_mean2, "bws_std1": bws_std1,
@@ -163,13 +165,7 @@ class SimEnv(gymnasium.Env):
                 "processing_energy": processing_energy, "tranmission_energy": transmission_energy}
 
     def _get_obs(self, state, config):
-        """
-            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2,), dtype=int),
-            "past_bws_std": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
-            "avaliable_buffer_size": spaces.Box(float('inf'), float('inf'), dtype=int),
-            "chunk_size": spaces.Box(0, float('inf'), dtype=int)
-        """
-        obs = {"past_bws_mean": np.array([state["bw_mean1"], state["bws_mean2"]]),
+        obs = {"past_bws_mean": np.array([state["bws_mean1"], state["bws_mean2"]]),
                "past_bws_std": np.array([state["bws_std1"], state["bws_std2"]]),
                "available_buffer_size": np.array([self.client.get_buffer_vacancy()]),
                "chunk_size": np.array(state["chunk_size"])}
@@ -185,10 +181,9 @@ class SimEnv(gymnasium.Env):
         if state["drain"]:
             return -10
         if state["empty"]:
-            return -abs(reward)
+            return -2
         if state["target"] == 0:
-            return -5
-        print("reward: ", reward)
+            return -abs(reward)
         return reward
 
     def step(self, action):
@@ -210,7 +205,7 @@ class SimEnv(gymnasium.Env):
         truncated = self.truncated()
         done = self.done()
         with open(self.log, 'a') as f:
-            f.write(json.dumps(state, indent=4))
+            f.write(json.dumps(state, indent=2))
         return obs, reward, done, truncated, state
 
     def reset(self, seed=None, options=None):

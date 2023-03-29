@@ -50,7 +50,7 @@ class NetworkSim():
                 lines = f.readlines()
                 for line in lines:
                     line = line.strip().split(' ')
-                    bw = int(line[4]) / int(line[5])
+                    bw = int(line[4]) / int(line[5]) * 1000
                     self.bws.append(int(bw))
 
     def step(self, elapsed_time=2):

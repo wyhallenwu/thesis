@@ -91,13 +91,12 @@ class Client():
                                  skip)  # default frames in each segment is 60
         if drain_mode:
             return
-        if not self.full():
-            self.tmp_chunk_num += 1
-            chunk_size, encoding_time = self.process_video(
-                frames_id, config, self.tmp_chunk_num)
-            self.used_buffer += chunk_size
-            self.buffer.append([self.tmp_chunk_num, frames_id,
-                                chunk_size, encoding_time, config["resolution"]])
+        self.tmp_chunk_num += 1
+        chunk_size, encoding_time = self.process_video(
+            frames_id, config, self.tmp_chunk_num)
+        self.used_buffer += chunk_size
+        self.buffer.append([self.tmp_chunk_num, frames_id,
+                            chunk_size, encoding_time, config["resolution"]])
 
     def capture(self, chunk_size, skip):
         """retrieve chunk_size frames per second with the interval of skip.
@@ -149,7 +148,7 @@ class Client():
         return self.buffer_size - self.used_buffer
 
     def empty(self):
-        return self.get_buffer_vacancy() == 0
+        return self.used_buffer == 0
 
     def done(self):
         return self.traverse_count >= 3
