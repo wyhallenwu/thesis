@@ -6,7 +6,7 @@ from sim.client import Client
 import gymnasium
 from gymnasium import spaces
 from sim.server import Server, OffloadingTargets
-import itertools
+from collections import OrderedDict
 import time
 import json
 # action: [framerate, resolution, quantizer, offloading target]
@@ -27,7 +27,7 @@ SKIP = [0, 1, 2, 4, 5]
 FRAMERATE = [30, 15, 10, 6, 5]
 SERVER_NUM = 2
 BYTES_IN_MB = 1000000
-SKIP_THRESHOLD = 10
+SKIP_THRESHOLD = 0.5
 MAX_STEPS = 500
 LOG = "log/"
 
@@ -39,13 +39,11 @@ class SimEnv(gymnasium.Env):
         # envs
         self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
         self.action_space = spaces.Discrete(len(self.actions_mapping))
-        # self.observation_space = spaces.MultiDiscrete(
-        #     [BANDWIDTH_BOUND, CLIENT_BUFFER_SIZE, CLIENT_BUFFER_SIZE, 5, 5, 4, 1])
         self.observation_space = spaces.Dict({
-            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2,), dtype=int),
-            "past_bws_std": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
-            "avaliable_buffer_size": spaces.Box(float('inf'), float('inf'), dtype=int),
-            "chunk_size": spaces.Box(0, float('inf'), dtype=int)
+            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2,), dtype=float),
+            "past_bws_std": spaces.Box(0, 1, shape=(2, ), dtype=float),
+            "available_buffer_size": spaces.Box(-2 * BUFFER_SIZE, 2 * BUFFER_SIZE, dtype=int),
+            "chunk_size": spaces.Box(0, 2 * BUFFER_SIZE, dtype=int)
         })
         # client
         self.client = Client(MOT_DATASET_PATH, GT_PATH, TMP_PATH, BUFFER_SIZE)
@@ -56,10 +54,11 @@ class SimEnv(gymnasium.Env):
         self.servers = OffloadingTargets([self.server1, self.server2])
         # other
         self.steps_count = 0
-        self.skipped_capture_count = 0
-        self.drain_status = False
+        self.skipped_chunk_count = 0
+        self.chunk_count = 0
+        self.drain_mode = False
         self.log = LOG + \
-            time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime() + ".json")
+            time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + ".json"
         print("BUILD SIMENV DONE.")
 
     def __build_actions_mapping(self, links):
@@ -112,10 +111,10 @@ class SimEnv(gymnasium.Env):
             results, mAps, analyzing_time = self.client.analyze_video_chunk(
                 f"{self.client.tmp_chunks}/{chunk_index:06d}.avi", frames_id, config["resolution"])
             # TODO: check
-            bws1.extend(self.servers.current_bws[0])
-            bws2.extend(self.servers.current_bws[1])
+            bws1.append(self.servers.current_bws[0])
+            bws2.append(self.servers.current_bws[1])
         return results, mAps, analyzing_time, encoding_time, transmission_time,\
-            [int(np.mean(bws1), int(np.mean(bws2))), round(np.std(bws1), 3), round(np.std(bws2), 3)], \
+            [np.mean(bws1), np.mean(bws2), np.std(bws1), np.std(bws2)], \
             chunk_index, frames_id, chunk_size, local_processing_energy, transmission_energy
 
     def update_state(self, config):
@@ -133,26 +132,29 @@ class SimEnv(gymnasium.Env):
             "capture_chunk"(int): num of chunks that would retrieve from the stream
             "average_bws"(int): average bandwidth to send the chunk  
         """
-        # capture from video stream
-        if self.drain_status == False:
-            capture_success = self.client.retrieve(config)
-            if not capture_success:
-                self.drain_status = True
+        # TODO:检查逻辑
+        if self.client.empty() and self.drain_mode == False:
+            self.client.retrieve(config)
+            self.chunk_count += 1
+            bws, throughputs = self.servers.step_networks()
+            return {"empty": True, "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
+                    "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1])}
+
         results, mAps, analyzing_time, encoding_time, tranmission_time, \
             [bws_mean1, bws_mean2, bws_std1, bws_std2], chunk_index, frames_id, \
             chunk_size, processing_energy, transmission_energy = self.do_chunk_analyzing(
                 config)
         capture_chunks = int(
-            tranmission_time / MILLS_PER_SECOND) // 2 if not self.drain_status else 0
-        # TODO:如果是drain buffer状态，跳过这几个chunk
-        # 添加处理empty buffer的情况
-        if self.drain_status:
-            self.client.capture()
-            for _ in range(capture_chunks):
-                self.client.retrieve(config["framerate"])
-        if self.drain_status and self.client.empty():
-            self.drain_status = False
-        return {"drain": self.drain_status, "results": results, "mAps": mAps,
+            tranmission_time / MILLS_PER_SECOND) // 2 if not self.drain_mode else 0
+        for _ in range(capture_chunks):
+            if self.client.full():
+                self.drain_mode = True
+            self.client.retrieve(config, self.drain_mode)
+            self.chunk_count += 1
+            self.skipped_chunk_count += 1 if self.drain_mode else 0
+        if self.drain_mode and self.client.empty():
+            self.drain_mode = False
+        return {"empty": False, "drain": self.drain_mode, "results": results, "mAps": mAps,
                 "analyzing_time": analyzing_time, "encoding_time": encoding_time,
                 "transmission_time": tranmission_time, "capture_chunks": capture_chunks,
                 "bws_mean1": bws_mean1, "bws_mean2": bws_mean2, "bws_std1": bws_std1,
@@ -169,19 +171,21 @@ class SimEnv(gymnasium.Env):
         """
         obs = {"past_bws_mean": np.array([state["bw_mean1"], state["bws_mean2"]]),
                "past_bws_std": np.array([state["bws_std1"], state["bws_std2"]]),
-               "avaliable_buffer_size": np.array([self.client.get_buffer_vacancy()]),
+               "available_buffer_size": np.array([self.client.get_buffer_vacancy()]),
                "chunk_size": np.array(state["chunk_size"])}
         return obs
 
     def _get_reward(self, state, config):
         # TODO: improve reward design
-        resolution_reward = {1920: 5, 1600: 4, 1280: 3, 960: 2}
-        quantizer_reward = {5: 1, 15: 2, 25: 3, 35: 4, 45: 5}
-        framerate_reward = {30: 5, 15: 3, 10: 2, 6: 1, 5: 0}
+        resolution_reward = {1920: 4, 1600: 2, 1280: 1, 960: -2}
+        quantizer_reward = {5: -5, 15: 1, 25: 3, 35: 4, 45: 5}
+        framerate_reward = {30: 5, 15: 3, 10: 1, 6: -3, 5: -5}
         reward = (resolution_reward[config["resolution"][0]] + quantizer_reward[config["quantizer"]] +
                   framerate_reward[config["framerate"]]) * np.mean(state["mAps"])
         if state["drain"]:
             return -10
+        if state["empty"]:
+            return -abs(reward)
         if state["target"] == 0:
             return -5
         print("reward: ", reward)
@@ -211,15 +215,22 @@ class SimEnv(gymnasium.Env):
 
     def reset(self, seed=None, options=None):
         self.client.reset()
-        self.server1.reset()
-        self.server2.reset()
+        self.servers.reset()
         self.steps_count = 0
-        self.skipped_capture_count = 0
-        self.drain_status = False
-        return self.observation_space.sample(), {}
+        self.skipped_chunk_count = 0
+        self.chunk_count = 0
+        self.drain_mode = False
+        obs = OrderedDict()
+        obs["past_bws_mean"] = np.array([0, 0])
+        obs["past_bws_std"] = np.array([0, 0])
+        obs["available_buffer_size"] = np.array(
+            [self.client.get_buffer_vacancy()])
+        obs["chunk_size"] = np.array([0])
+        return obs, {}
 
     def truncated(self):
-        return self.steps_count > MAX_STEPS or self.skipped_capture_count > SKIP_THRESHOLD
+        return self.steps_count > MAX_STEPS or (self.steps_count > MAX_STEPS / 2 and
+                                                self.skipped_chunk_count / self.steps_count > SKIP_THRESHOLD)
 
     def done(self):
         return self.client.done()

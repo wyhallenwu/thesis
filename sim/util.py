@@ -59,7 +59,11 @@ class Evaluator():
     def evaluate(self, prediction, config, frame_id):
         result = get_pascal_voc_metrics(
             self.gt.get_boundingboxes(config, frame_id), prediction)
-        return result.items(), MetricPerClass.mAP(result)
+        for k in result.keys():
+            r = result[k]
+            result[k] = {"precision": r.precision, "recall": r.recall, "ap": r.ap, "tp": r.tp,
+                         "fp": r.fp, "gt": r.num_groundtruth, "nd": r.num_detection}
+        return result, MetricPerClass.mAP(result)
 
 
 def energy_consuming(frames_num, resolution, local=False):

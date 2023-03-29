@@ -70,9 +70,12 @@ class OffloadingTargets():
         return bws, throughputs
 
     def get_server_by_id(self, id):
-        for server in self.servers:
-            if server.server_id == id:
-                return server
+        return self.servers[id - 1]
 
     def get_current_bw_by_id(self, id):
         return self.current_bws[id - 1]
+
+    def reset(self):
+        for server in self.servers:
+            server.reset()
+        self.current_bws = [0] * len(self.servers)

@@ -29,13 +29,16 @@ class Client():
         self.detector = YoloDetector("yolov5n")
         self.evaluator = Evaluator("acc", "yolov5n", 1050)
         self.rtt = 0
+        self.traverse_count = 0
         subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
         print("BUILD CLIENT DONE.")
 
     def reset(self):
         self.tmp_chunk_num = 0
+        self.used_buffer = 0
         self.dataset.current_frame_id = 1
+        self.traverse_count = 0
         self.buffer.clear()
         subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
@@ -77,17 +80,17 @@ class Client():
         subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         return os.path.getsize(f"{self.tmp_chunks}/{chunk_index:06d}.avi"), gst_time
 
-    def retrieve(self, config):
+    def retrieve(self, config, drain_mode=False):
         # TODO: add resolution in consideration
         """retrieve frames at every interval skip. if buffer is full, abandon the capture
         @params:
             config: Dict[resolution, framerate, quantizer, target]
-        @return:
-            bool: return True if buffer is not full else False
         """
         skip = SKIP_MAPPING[config["framerate"]]
         frames_id = self.capture(DEFAULT_FRAMES_NUM / (skip + 1),
                                  skip)  # default frames in each segment is 60
+        if drain_mode:
+            return
         if not self.full():
             self.tmp_chunk_num += 1
             chunk_size, encoding_time = self.process_video(
@@ -95,8 +98,6 @@ class Client():
             self.used_buffer += chunk_size
             self.buffer.append([self.tmp_chunk_num, frames_id,
                                 chunk_size, encoding_time, config["resolution"]])
-            return True
-        return False
 
     def capture(self, chunk_size, skip):
         """retrieve chunk_size frames per second with the interval of skip.
@@ -110,6 +111,8 @@ class Client():
         frames_id = []
         while counter < chunk_size:
             frames_id.append(self.dataset.current_frame_id)
+            self.traverse_count += 1 if self.dataset.current_frame_id + \
+                skip >= len(self.dataset) else 0
             self.dataset.current_frame_id = (self.dataset.current_frame_id +
                                              skip) % len(self.dataset) + 1
             counter += 1
@@ -146,11 +149,10 @@ class Client():
         return self.buffer_size - self.used_buffer
 
     def empty(self):
-        return self.get_buffer_vacancy == 0
+        return self.get_buffer_vacancy() == 0
 
     def done(self):
-        # TODO: consider ending case
-        return False
+        return self.traverse_count >= 3
 
 
 class Dataset():

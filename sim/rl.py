@@ -5,11 +5,13 @@ from sim.env import SimEnv
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from tianshou.utils import TensorboardLogger
+from gymnasium.wrappers import FlattenObservation
 
 
 def run():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     train_env = SimEnv()
+    train_env = FlattenObservation(train_env)
     writer = SummaryWriter('log/')
     logger = TensorboardLogger(writer, 1, 1, 1, 1)
     # test_env = SimEnv()

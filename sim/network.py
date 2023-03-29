@@ -50,7 +50,8 @@ class NetworkSim():
                 lines = f.readlines()
                 for line in lines:
                     line = line.strip().split(' ')
-                    self.bws.append(int(line[4] / line[5]))
+                    bw = int(line[4]) / int(line[5])
+                    self.bws.append(int(bw))
 
     def step(self, elapsed_time=2):
         return [self.next_bw() for _ in range(elapsed_time)]
@@ -65,5 +66,5 @@ class NetworkSim():
 
 
 if __name__ == "__main__":
-    network = NetworkSim(traces="fcc")
+    network = NetworkSim(traces="norway")
     network.test()
