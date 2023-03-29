@@ -1,5 +1,8 @@
 import os
 import random
+import numpy as np
+
+TRACES = {"fcc": "dataset/fcc/202201cooked", "norway": "dataset/norway"}
 
 
 class NetworkSim():
@@ -7,13 +10,20 @@ class NetworkSim():
     NetworkSim is the simulated traces in the format: bytes_per_second
     """
 
-    def __init__(self, traces_path) -> None:
+    def __init__(self, traces="fcc") -> None:
+        self.traces_path = TRACES[traces]
         self.time_step = 0
         self.bws = []
-        self.init_fcc_traces(traces_path)
-        self.bw_id = random.randint(0, len(self.bws)-1)
-        self.bw = self.bws[self.bw_id]
-        self.current_bw = None
+        if traces == "fcc":
+            self.init_fcc_traces(self.traces_path)
+            self.bw_id = random.randint(0, len(self.bws)-1)
+            self.bw = self.bws[self.bw_id]
+        elif traces == "norway":
+            self.init_norway3G_trace(self.traces_path)
+            self.bw = self.bws
+        self.bw = np.roll(self.bw, random.randint(
+            len(self.bw) // 2, len(self.bw) - 1)).tolist()
+        self.current_bw = 0
 
     def next_bw(self):
         self.time_step = (self.time_step + 1) % len(self.bw)
@@ -33,51 +43,27 @@ class NetworkSim():
                     trace.append(int(bw))
             self.bws.append(trace)
 
+    def init_norway3G_trace(self, traces_path):
+        files = os.listdir(traces_path)
+        for file in files:
+            with open(traces_path + "/" + file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip().split(' ')
+                    self.bws.append(int(line[4] / line[5]))
+
     def step(self, elapsed_time=2):
         return [self.next_bw() for _ in range(elapsed_time)]
+
+    def reset(self):
+        self.time_step = 0
+        self.current_bw = 0
 
     def test(self):
         for _ in range(10):
             print(self.step())
 
 
-# class Networks():
-#     def __init__(self, num, traces_path) -> None:
-#         self.networks = [NetworkSim(id, traces_path) for i in range(num)]
-#         self.current_bws = None
-#         self.current_throughputs = None
-#         self.links = num
-#         self.timestamp = 0
-#         self.step()
-#         print("INITIALIZE NETWORKS DONE.")
-
-#     def step(self):
-#         """one timestamp elapsed. default step is 2 seconds
-#         @return:
-#             bws: bandwidth for each second in the past step
-#             throughputs: available bytes in the past step
-#         """
-#         bws = [net.step() for net in self.networks]
-#         throughputs = [sum(bw) for bw in bws]
-#         self.current_bws = bws
-#         self.current_throughputs = throughputs
-#         self.timestamp += 1
-#         return bws, throughputs
-
-#     def get_curr_throughput(self, id):
-#         assert id < self.links, "out of range id [Networks get_curr_throughput()]"
-#         return self.current_throughputs[id]
-
-#     def get_curr_bw(self, id):
-#         assert id < self.links, "out of range id [Networks get_curr_bw()]"
-#         return self.current_bws[id]
-
-#     def test(self):
-#         print("current bandwidth of each link: ", self.current_bws)
-#         print("current throughputs of each link: ", self.current_throughputs)
-#         print("current timestamp: ", self.timestamp)
-
-
 if __name__ == "__main__":
-    network = NetworkSim(traces_path="dataset/fcc/202201cooked/")
+    network = NetworkSim(traces="fcc")
     network.test()

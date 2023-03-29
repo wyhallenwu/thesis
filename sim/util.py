@@ -62,7 +62,7 @@ class Evaluator():
         return result.items(), MetricPerClass.mAP(result)
 
 
-def energy_consuming(frames_num, resolution, local: bool):
+def energy_consuming(frames_num, resolution, local=False):
     """energy consuming of wrapping and sending one chunk.
     following the setting of paper: Joint Configuration Adaptation and Bandwidth Allocation for Edge-based Real-time Video Analytics
     """

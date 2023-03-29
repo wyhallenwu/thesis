@@ -1,3 +1,4 @@
+from typing import List
 from sim.network import NetworkSim
 from sim.detectors import YoloDetector, DetrDetector
 from sim.util import Evaluator
@@ -5,9 +6,9 @@ import random
 
 
 class Server():
-    def __init__(self, server_id: int, trace_path: str, model_type: str, gt_acc_path: str, frames_num: int) -> None:
+    def __init__(self, server_id: int, traces: str, model_type: str, gt_acc_path: str, frames_num: int) -> None:
         self.server_id = server_id
-        self.network = NetworkSim(trace_path)
+        self.network = NetworkSim(traces)
         self.model_type = model_type
         if self.model_type[:4] == "yolo":
             self.detector = YoloDetector(model_type)
@@ -16,6 +17,11 @@ class Server():
         self.evaluator = Evaluator(gt_acc_path, "yolov5x", frames_num)
         self.rtt = random.randint(60, 80)
         self.process_chunks_ids = []
+
+    def reset(self):
+        self.rtt = random.randint(60, 80)
+        self.process_chunks_ids.clear()
+        self.network.reset()
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
         """current video chunk is processed by local device.
@@ -44,3 +50,29 @@ class Server():
         bws = self.network.step()
         throughputs = sum(bws)
         return bws, throughputs
+
+
+class OffloadingTargets():
+    def __init__(self, servers: List[Server]) -> None:
+        self.servers = servers
+        self.current_bws = [0] * len(self.servers)
+
+    def add(self, server: Server):
+        self.servers.append(server)
+
+    def step_networks(self):
+        bws, throughputs = [], []
+        for id, server in enumerate(self.servers):
+            bw, throughput = server.step_network()
+            bws.append(bw)
+            self.current_bws[id] = bw
+            throughputs.append(throughput)
+        return bws, throughputs
+
+    def get_server_by_id(self, id):
+        for server in self.servers:
+            if server.server_id == id:
+                return server
+
+    def get_current_bw_by_id(self, id):
+        return self.current_bws[id - 1]

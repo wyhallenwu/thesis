@@ -1,7 +1,8 @@
-dataset
+dataset/
 videos/
 *.pt
+acc/
 gt/
-gt_table/
 sim/__pycache__/
-MOT16-04
+MOT16-04/
+tmp/

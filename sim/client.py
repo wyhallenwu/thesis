@@ -3,7 +3,8 @@ import cv2
 import time
 from sim.detectors import YoloDetector
 from collections import deque
-from queue import Queue
+from sim.util import Evaluator
+import subprocess
 """
 config: [width, height, quantizer, framerate]
 """
@@ -14,8 +15,9 @@ SKIP_MAPPING = {30: 0, 15: 1, 10: 2, 6: 4, 5: 5}
 
 
 class Client():
-    def __init__(self, dataset_path, tmp_dir="tmp", buffer_size=2000000) -> None:
+    def __init__(self, dataset_path, gt_path, tmp_dir="tmp", buffer_size=2000000) -> None:
         self.dataset_path = dataset_path
+        self.gt_path = gt_path
         self.buffer_size = buffer_size
         self.used_buffer = 0
         self.dataset = Dataset(dataset_path)
@@ -25,8 +27,18 @@ class Client():
         self.tmp_chunks = tmp_dir + "/chunks"
         self.tmp_chunk_num = 0
         self.detector = YoloDetector("yolov5n")
+        self.evaluator = Evaluator("acc", "yolov5n", 1050)
         self.rtt = 0
+        subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
+        subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
         print("BUILD CLIENT DONE.")
+
+    def reset(self):
+        self.tmp_chunk_num = 0
+        self.dataset.current_frame_id = 1
+        self.buffer.clear()
+        subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
+        subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
 
     def get_chunk(self):
         """get video chunk_index and frames_id from buffer.
@@ -36,15 +48,16 @@ class Client():
             chunk_size: bytes of chunk
             encoding_time: encoding process time
         """
-        chunk_index, frames_id, chunk_size, encoding_time = self.buffer.popleft()
+        chunk_index, frames_id, chunk_size, encoding_time, resolution = self.buffer.popleft()
         self.used_buffer -= chunk_size
-        return chunk_index, frames_id, chunk_size, encoding_time
+        return chunk_index, frames_id, chunk_size, encoding_time, resolution
 
     def gstreamer(self, config, chunk_index):
         """process images with gstreamer and return the processing time"""
         start = time.time()
-        os.system(
-            f"gst-launch-1.0 multifilesrc location={self.tmp_frames}/%06d.jpg start-index=1 caps=\"image/jpeg,framerate={config['framerate']}/1\" ! decodebin ! videoscale ! video/x-raw,width=${config['resolution'][0]},height=${config['resolution'][1]} ! videoconvert ! x264enc pass=5 speed-preset=1 quantizer=${config['quantizer']} tune=zerolatency threads=8 ! avimux ! filesink location=\"{self.tmp_chunks}/{chunk_index:06d}.avi\"")
+        res = subprocess.run(
+            f"gst-launch-1.0 multifilesrc location={self.tmp_frames}/%06d.jpg start-index=1 caps=\"image/jpeg,framerate={config['framerate']}/1\" ! decodebin ! videoscale ! video/x-raw,width={config['resolution'][0]},height={config['resolution'][1]} ! videoconvert ! x264enc pass=5 speed-preset=1 quantizer={config['quantizer']} tune=zerolatency threads=8 ! avimux ! filesink location=\"{self.tmp_chunks}/{chunk_index:06d}.avi\"", shell=True)
+        res.check_returncode()
         end = time.time()
         return round((end - start) * 1000, 3)
 
@@ -57,17 +70,15 @@ class Client():
         @return:
             chunk_size, processing_time
         """
-        # clean the tmp_frames and copy the chunk images to the tmp
-        os.system(f"rm -rf {self.tmp_frames}/*")
-        for frame_id in frames_id:
-            os.system(
-                f"cp {self.dataset_path}/{frame_id:06d}.jpg {self.tmp_frames}/{frame_id:06d}.jpg")
+        for id, frame_id in enumerate(frames_id):
+            subprocess.run(
+                f"cp {self.gt_path}/{config['resolution'][0]}x{config['resolution'][1]}/{frame_id:06d}.jpg {self.tmp_frames}/{(id+1):06d}.jpg", shell=True)
         gst_time = self.gstreamer(config, chunk_index)
-        # clean up the tmp frames file
-        os.system(f"rm -rf {self.tmp_frames}/*")
+        subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         return os.path.getsize(f"{self.tmp_chunks}/{chunk_index:06d}.avi"), gst_time
 
     def retrieve(self, config):
+        # TODO: add resolution in consideration
         """retrieve frames at every interval skip. if buffer is full, abandon the capture
         @params:
             config: Dict[resolution, framerate, quantizer, target]
@@ -83,7 +94,7 @@ class Client():
                 frames_id, config, self.tmp_chunk_num)
             self.used_buffer += chunk_size
             self.buffer.append([self.tmp_chunk_num, frames_id,
-                                chunk_size, encoding_time])
+                                chunk_size, encoding_time, config["resolution"]])
             return True
         return False
 
@@ -104,9 +115,6 @@ class Client():
             counter += 1
         return frames_id
 
-    def _get_obs(self):
-        return self.used_buffer
-
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
         """current video chunk is processed by local device.
         @param:
@@ -126,7 +134,7 @@ class Client():
         results = []
         for boxes, frame_id in zip(bboxes, frames_id):
             result, mAp = self.evaluator.evaluate(
-                boxes, f"{resolution[0]}x{resolution[1]}", f"{frame_id:06d}")
+                boxes, f"{resolution[0]}x{resolution[1]}", frame_id)
             results.append(result)
             mAps.append(mAp)
         return results, mAps, processing_time
@@ -142,7 +150,7 @@ class Client():
 
     def done(self):
         # TODO: consider ending case
-        return True
+        return False
 
 
 class Dataset():
