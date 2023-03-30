@@ -16,11 +16,9 @@ class Server():
             self.detector = DetrDetector()
         self.evaluator = Evaluator(gt_acc_path, "yolov5x", frames_num)
         self.rtt = random.randint(60, 80)
-        self.process_chunks_ids = []
 
     def reset(self):
         self.rtt = random.randint(60, 80)
-        self.process_chunks_ids.clear()
         self.network.reset()
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
@@ -34,14 +32,13 @@ class Server():
             mAps: mAp of each frame
             processing_time: process time of the whole chunk
         """
-        self.process_chunks_ids.append(int(chunk_filename[:6]))
         bboxes, processing_time = self.detector.detect_video_chunk(
             chunk_filename, frames_id)
         mAps = []
         results = []
         for boxes, frame_id in zip(bboxes, frames_id):
             result, mAp = self.evaluator.evaluate(
-                boxes, f"{resolution[0]}x{resolution[1]}", f"{frame_id:06d}")
+                boxes, f"{resolution[0]}x{resolution[1]}", frame_id)
             results.append(result)
             mAps.append(mAp)
         return results, mAps, processing_time

@@ -8,7 +8,7 @@ from gymnasium import spaces
 from sim.server import Server, OffloadingTargets
 from collections import OrderedDict
 import time
-import json
+import csv
 # action: [framerate, resolution, quantizer, offloading target]
 # skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
 # timestamp is 2 seconds
@@ -30,6 +30,7 @@ BYTES_IN_MB = 1000000
 SKIP_THRESHOLD = 0.5
 MAX_STEPS = 500
 LOG = "log/"
+np.set_printoptions(precision=3)
 
 
 class SimEnv(gymnasium.Env):
@@ -40,11 +41,13 @@ class SimEnv(gymnasium.Env):
         self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
         self.action_space = spaces.Discrete(len(self.actions_mapping))
         self.observation_space = spaces.Dict({
-            "past_bws_mean": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
-            "past_bws_std": spaces.Box(0, float('inf'), shape=(2, ), dtype=float),
-            "available_buffer_size": spaces.Box(-2 * BUFFER_SIZE, 2 * BUFFER_SIZE, dtype=int),
-            "chunk_size": spaces.Box(0, 2 * BUFFER_SIZE, dtype=int)
+            "past_bws_mean": spaces.Box(0, np.inf, shape=(2, ), dtype=np.float64),
+            "past_bws_std": spaces.Box(0, np.inf, shape=(2, ), dtype=np.float64),
+            "available_buffer_size": spaces.Box(-2 * BUFFER_SIZE, 2 * BUFFER_SIZE, dtype=np.int64),
+            "chunk_size": spaces.Box(0, 2 * BUFFER_SIZE, dtype=np.int64)
         })
+        # self.observation_space = spaces.Box(low=np.array(
+        #     [0.0, 0.0, 0.0, 0.0, -2.0*BUFFER_SIZE, 0.0]), high=np.array([np.inf, np.inf, np.inf, np.inf, 2.0*BUFFER_SIZE, 2.0*BUFFER_SIZE], dtype=np.float64))
         # client
         self.client = Client(MOT_DATASET_PATH, GT_PATH, TMP_PATH, BUFFER_SIZE)
         # remote servers
@@ -132,7 +135,6 @@ class SimEnv(gymnasium.Env):
             "capture_chunk"(int): num of chunks that would retrieve from the stream
             "average_bws"(int): average bandwidth to send the chunk  
         """
-        # TODO:检查逻辑
         if self.client.empty() and self.drain_mode == False:
             self.client.retrieve(config)
             self.chunk_count += 1
@@ -140,6 +142,13 @@ class SimEnv(gymnasium.Env):
             return {"empty": True, "drain": self.drain_mode, "mAps": 0,
                     "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
                     "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1]), "chunk_size": 0}
+            # return {"empty": True, "drain": self.drain_mode, "mAps": 0,
+            #         "analyzing_time": -1, "encoding_time": -1,
+            #         "transmission_time": -1, "capture_chunks": -1,
+            #         "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]), "bws_std1": np.std(bws[0]),
+            #         "bws_std2": np.std(bws[1]), "chunk_index": -1,
+            #         "frames_id": [-1], "chunk_size": 0, "target": config["target"],
+            #         "processing_energy": -1, "tranmission_energy": -1}
 
         results, mAps, analyzing_time, encoding_time, tranmission_time, \
             [bws_mean1, bws_mean2, bws_std1, bws_std2], chunk_index, frames_id, \
@@ -156,7 +165,7 @@ class SimEnv(gymnasium.Env):
         if self.drain_mode and self.client.empty():
             self.drain_mode = False
         # remove "results" in the return state
-        return {"empty": False, "drain": self.drain_mode, "mAps": mAps,
+        return {"empty": False, "drain": self.drain_mode, "mAps": np.mean(mAps),
                 "analyzing_time": analyzing_time, "encoding_time": encoding_time,
                 "transmission_time": tranmission_time, "capture_chunks": capture_chunks,
                 "bws_mean1": bws_mean1, "bws_mean2": bws_mean2, "bws_std1": bws_std1,
@@ -168,7 +177,9 @@ class SimEnv(gymnasium.Env):
         obs = {"past_bws_mean": np.array([state["bws_mean1"], state["bws_mean2"]]),
                "past_bws_std": np.array([state["bws_std1"], state["bws_std2"]]),
                "available_buffer_size": np.array([self.client.get_buffer_vacancy()]),
-               "chunk_size": np.array(state["chunk_size"])}
+               "chunk_size": np.array([state["chunk_size"]])}
+        # obs = np.array([state["bws_mean1"], state["bws_mean2"], state["bws_std1"],
+        #                 state["bws_std2"], self.client.get_buffer_vacancy(), state["chunk_size"]])
         return obs
 
     def _get_reward(self, state, config):
@@ -177,11 +188,11 @@ class SimEnv(gymnasium.Env):
         quantizer_reward = {5: -5, 15: 1, 25: 3, 35: 4, 45: 5}
         framerate_reward = {30: 5, 15: 3, 10: 1, 6: -3, 5: -5}
         reward = (resolution_reward[config["resolution"][0]] + quantizer_reward[config["quantizer"]] +
-                  framerate_reward[config["framerate"]]) * np.mean(state["mAps"])
+                  framerate_reward[config["framerate"]]) * state["mAps"]
         if state["drain"]:
-            return -10
+            return -10.0
         if state["empty"]:
-            return -2
+            return -2.0
         if state["target"] == 0:
             return -abs(reward)
         return reward
@@ -205,7 +216,9 @@ class SimEnv(gymnasium.Env):
         truncated = self.truncated()
         done = self.done()
         with open(self.log, 'a') as f:
-            f.write(json.dumps(state, indent=2))
+            fields = list(state.keys())
+            writer = csv.DictWriter(f, fieldnames=fields)
+            writer.writerow(state)
         return obs, reward, done, truncated, state
 
     def reset(self, seed=None, options=None):
@@ -216,11 +229,12 @@ class SimEnv(gymnasium.Env):
         self.chunk_count = 0
         self.drain_mode = False
         obs = OrderedDict()
-        obs["past_bws_mean"] = np.array([0, 0])
-        obs["past_bws_std"] = np.array([0, 0])
+        obs["past_bws_mean"] = np.array([0.0, 0.0], dtype=np.float64)
+        obs["past_bws_std"] = np.array([0.0, 0.0], dtype=np.float64)
         obs["available_buffer_size"] = np.array(
-            [self.client.get_buffer_vacancy()])
-        obs["chunk_size"] = np.array([0])
+            [self.client.get_buffer_vacancy()], dtype=np.int64)
+        obs["chunk_size"] = np.array([0], np.int64)
+        # obs = np.array([0, 0, 0, 0, self.client.get_buffer_vacancy(), 0])
         return obs, {}
 
     def truncated(self):
