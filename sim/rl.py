@@ -13,7 +13,7 @@ def run():
     train_env = SimEnv()
     train_env = FlattenObservation(train_env)
     writer = SummaryWriter('log/')
-    logger = TensorboardLogger(writer, 1, 1, 1, 1)
+    logger = TensorboardLogger(writer)
     # test_env = SimEnv()
     state_shape = train_env.observation_space.shape
     action_shape = train_env.action_space.shape
@@ -24,8 +24,9 @@ def run():
     ac = ActorCritic(actor, critic)
     optim = torch.optim.Adam(ac.parameters(), lr=0.0003)
     dist = torch.distributions.Categorical
-    policy = ts.policy.PPOPolicy(
-        actor, critic, optim, dist, action_space=train_env.action_space, deterministic_eval=True)
+    policy = ts.policy.A2CPolicy(
+        actor, critic, optim, dist_fn=dist, deterministic_eval=True,
+        reward_normalization=True)
     train_collector = ts.data.Collector(
         policy, train_env, ts.data.ReplayBuffer(200))
     result = ts.trainer.onpolicy_trainer(
