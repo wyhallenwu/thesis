@@ -81,7 +81,6 @@ class Client():
         return os.path.getsize(f"{self.tmp_chunks}/{chunk_index:06d}.avi"), gst_time
 
     def retrieve(self, config, drain_mode=False):
-        # TODO: add resolution in consideration
         """retrieve frames at every interval skip. if buffer is full, abandon the capture
         @params:
             config: Dict[resolution, framerate, quantizer, target]

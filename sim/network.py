@@ -22,7 +22,7 @@ class NetworkSim():
             self.init_norway3G_trace(self.traces_path)
             self.bw = self.bws
         self.bw = np.roll(self.bw, random.randint(
-            len(self.bw) // 2, len(self.bw) - 1)).tolist()
+            0, len(self.bw) - 1)).tolist()
         self.current_bw = 0
 
     def next_bw(self):
@@ -51,7 +51,7 @@ class NetworkSim():
                 for line in lines:
                     line = line.strip().split(' ')
                     bw = int(line[4]) / int(line[5]) * 1000
-                    self.bws.append(int(bw))
+                    self.bws.append(int(bw / 3))
 
     def step(self, elapsed_time=2):
         return [self.next_bw() for _ in range(elapsed_time)]

@@ -22,15 +22,15 @@ class Server():
         self.network.reset()
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
-        """current video chunk is processed by local device.
+        """analyzing video chunk and compare it with corresponding resolution preprocessed groundtruth.
         @param:
-            chunk_filename: path to the video chunk 
-            frames_id: List[int] index of each frame
-            resolution: [width, height]
+            chunk_filename(str): path to the video chunk 
+            frames_id(List[int]): index of each frame
+            resolution(List[int]): [width, height]
         @return:
-            results: wrapped result of earh frame(ap, precision, interpolated_recall, interpolated_precision, tp, fp, num_groundtruth, num_detection)
-            mAps: mAp of each frame
-            processing_time: process time of the whole chunk
+            results(List): wrapped result of earh frame(ap, precision, interpolated_recall, interpolated_precision, tp, fp, num_groundtruth, num_detection)
+            mAps(List[float]): mAp of each frame
+            processing_time(float): process time of the whole chunk
         """
         bboxes, processing_time = self.detector.detect_video_chunk(
             chunk_filename, frames_id)
@@ -44,6 +44,12 @@ class Server():
         return results, mAps, processing_time
 
     def step_network(self):
+        """step the simulated network trace to next timestamp.
+
+        @returns:
+            bws(List[int]): bytes per second
+            throughputs(int): sum of bytes in the period
+        """
         bws = self.network.step()
         throughputs = sum(bws)
         return bws, throughputs
@@ -58,6 +64,11 @@ class OffloadingTargets():
         self.servers.append(server)
 
     def step_networks(self):
+        """step all offloading targets to the next timestamp.
+        @retuns:
+            bws(List[List[int]]): bytes per second of each target in the eplased time.
+            throughputs(List[int]): throughputs of each target in the eplased time.
+        """
         bws, throughputs = [], []
         for id, server in enumerate(self.servers):
             bw, throughput = server.step_network()

@@ -14,9 +14,10 @@ class GT():
         self.gt_acc_path = gt_acc_path
         self.model_type = model_type
         self.gt_frames_num = gt_frames_num
-        self.gt = self.read_gt()  # gt: Dict[config: List[List[BoundingBox]]
+        self.gt = self.init_gt()  # gt: Dict[config: List[List[BoundingBox]]
 
-    def read_gt(self):
+    def init_gt(self):
+        """read the preprocessed groundtruth of the corresponding detection model."""
         gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
         gt = {file[:-4]: [[]
                           for _ in range(self.gt_frames_num)] for file in gt_acc_files}
@@ -32,7 +33,7 @@ class GT():
         return gt
 
     def get_boundingboxes(self, config, frame_id):
-        """get_boundingboxes retrieve the Boundingboxes of the corresponding size config.
+        """given the configuration and frame index, return the groundtruth boundingbox.
         @params:
             config(str): {width}x{height}
             frame_id(int): index of frame
@@ -57,6 +58,15 @@ class Evaluator():
         self.frames_num = frames_num
 
     def evaluate(self, prediction, config, frame_id):
+        """evaluate the prediction with the corresponding config groudtruth.
+        @params:
+            prediction(List[BoundingBox]): detected boundingboxes in the frame
+            config(str): {width}x{height}
+            frame_id(int): the frame index in the original stream
+        @returns:
+            ret(Dict): presion, recall, ap, tp, fp of the frame
+            mAp(float): mAp
+        """
         ret = {}
         result = get_pascal_voc_metrics(
             self.gt.get_boundingboxes(config, frame_id), prediction)
@@ -67,8 +77,12 @@ class Evaluator():
 
 
 def energy_consuming(frames_num, resolution, local=False):
-    """energy consuming of wrapping and sending one chunk.
+    """energy consumed to process and send the chunk.
     following the setting of paper: Joint Configuration Adaptation and Bandwidth Allocation for Edge-based Real-time Video Analytics
+    @params:
+        frames_num(int): frames the chunk contained
+        resolution(List[int]): [width, height]
+        local(bool): if True the chunk is processed by local client else by the remote server
     """
     mu = 5  # 5j/frame
     gamma = 5e-6
@@ -78,6 +92,14 @@ def energy_consuming(frames_num, resolution, local=False):
     transmission_energy = alpha * gamma * \
         frames_num * (width * height * 8) ** 2 if not local else 0
     return processing_energy, transmission_energy
+
+
+def plog(state: dict) -> str:
+    ret = ""
+    for k, v in state.items():
+        ret += f"{k}: {v}, "
+    ret += '\n'
+    return ret
 
 
 if __name__ == '__main__':

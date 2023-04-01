@@ -1,5 +1,5 @@
-from sim.rl import run
+from sim.rl import ppo_run
 
 if __name__ == "__main__":
-    run()
+    ppo_run()
     
