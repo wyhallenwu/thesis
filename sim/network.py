@@ -33,6 +33,9 @@ class NetworkSim():
     def get_current_bw(self):
         return self.current_bw
 
+    def get_max_bw(self):
+        return max(self.bw)
+
     def init_fcc_traces(self, fcc_cooked_path):
         files = os.listdir(fcc_cooked_path)
         for file in files:
@@ -50,11 +53,11 @@ class NetworkSim():
                 lines = f.readlines()
                 for line in lines:
                     line = line.strip().split(' ')
-                    bw = int(line[4]) / int(line[5]) * 1000
-                    self.bws.append(int(bw / 3))
+                    bw = int(line[4]) / int(line[5]) * 1000  # bytes per second
+                    self.bws.append(int(bw / 4))
 
-    def step(self, elapsed_time=2):
-        return [self.next_bw() for _ in range(elapsed_time)]
+    def step(self):
+        return self.next_bw()
 
     def reset(self):
         self.time_step = 0

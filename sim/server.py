@@ -50,9 +50,11 @@ class Server():
             bws(List[int]): bytes per second
             throughputs(int): sum of bytes in the period
         """
-        bws = self.network.step()
-        throughputs = sum(bws)
-        return bws, throughputs
+        bw = self.network.step()
+        return bw
+
+    def get_max_bw(self):
+        return self.network.get_max_bw()
 
 
 class OffloadingTargets():
@@ -69,19 +71,24 @@ class OffloadingTargets():
             bws(List[List[int]]): bytes per second of each target in the eplased time.
             throughputs(List[int]): throughputs of each target in the eplased time.
         """
-        bws, throughputs = [], []
+        bws = []
         for id, server in enumerate(self.servers):
-            bw, throughput = server.step_network()
+            bw = server.step_network()
             bws.append(bw)
             self.current_bws[id] = bw
-            throughputs.append(throughput)
-        return bws, throughputs
+        return bws
+
+    def __len__(self):
+        return len(self.servers)
 
     def get_server_by_id(self, id):
         return self.servers[id - 1]
 
     def get_current_bw_by_id(self, id):
         return self.current_bws[id - 1]
+
+    def get_max_bw(self):
+        return [server.get_max_bw() for server in self.servers]
 
     def reset(self):
         for server in self.servers:

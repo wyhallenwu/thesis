@@ -30,6 +30,10 @@ class Client():
         self.evaluator = Evaluator("acc", "yolov5n", 1050)
         self.rtt = 0
         self.traverse_count = 0
+        if not os.path.exists(self.tmp_frames):
+            os.makedirs(self.tmp_frames)
+        if not os.path.exists(self.tmp_chunks):
+            os.makedirs(self.tmp_chunks)
         subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
         print("BUILD CLIENT DONE.")
@@ -52,7 +56,7 @@ class Client():
             encoding_time: encoding process time
         """
         chunk_index, frames_id, chunk_size, encoding_time, resolution = self.buffer.popleft()
-        self.used_buffer -= chunk_size
+        self.used_buffer -= int(chunk_size)
         return chunk_index, frames_id, chunk_size, encoding_time, resolution
 
     def gstreamer(self, config, chunk_index):
@@ -150,7 +154,8 @@ class Client():
         return self.used_buffer == 0
 
     def done(self):
-        return self.traverse_count >= 3
+        # return self.traverse_count >= 3
+        return False
 
 
 class Dataset():

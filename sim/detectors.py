@@ -165,40 +165,13 @@ class DetrDetector():
 if __name__ == '__main__':
     detr = DetrDetector()
     yolox = YoloDetector("yolov5n")
-    gt = Evaluator("acc", "detr", 1050)
+    gt_detr = Evaluator("acc", "detr", 1050)
     gt_yolo = Evaluator("acc", "yolov5x", 1050)
     result, _ = detr.detect("gt/1920x1080/000001.jpg", 1)
     result_yolo, _ = yolox.detect("gt/1920x1080/000001.jpg", 1)
     result = detr.prediction2bbox(result)
     result_yolo = yolox.prediction2bbox(result_yolo)
-    result, mAp = gt.evaluate(result, "1920x1080", 1)
+    result, mAp = gt_detr.evaluate(result, "1920x1080", 3)
     result_yolo, mAp_yolo = gt_yolo.evaluate(
         result_yolo, "1920x1080", 1)
     print(f"map: {mAp}/{mAp_yolo}")
-    for cls, metric in result:
-        label = metric.label
-        print('ap', metric.ap)
-        print('precision', metric.precision)
-        print('interpolated_recall', metric.interpolated_recall)
-        print('interpolated_precision', metric.interpolated_precision)
-        print('tp', metric.tp)
-        print('fp', metric.fp)
-        print('num_groundtruth', metric.num_groundtruth)
-        print('num_detection', metric.num_detection)
-
-    for cls, metric in result_yolo:
-        label = metric.label
-        print('ap', metric.ap)
-        print('precision', metric.precision)
-        print('interpolated_recall', metric.interpolated_recall)
-        print('interpolated_precision', metric.interpolated_precision)
-        print('tp', metric.tp)
-        print('fp', metric.fp)
-        print('num_groundtruth', metric.num_groundtruth)
-        print('num_detection', metric.num_detection)
-
-    results, processing_time = yolox.detect_video_chunk(
-        "30.avi", list(range(1, 31)))
-    for id, result in enumerate(results):
-        r, mAp = gt_yolo.evaluate(result, "1920x1080", id + 1)
-        print(mAp)

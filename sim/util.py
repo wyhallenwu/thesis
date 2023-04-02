@@ -13,17 +13,18 @@ class GT():
     def __init__(self, gt_acc_path, model_type, gt_frames_num) -> None:
         self.gt_acc_path = gt_acc_path
         self.model_type = model_type
+        self.model_gt = "detr" if self.model_type == "detr" else "yolov5x"
         self.gt_frames_num = gt_frames_num
         self.gt = self.init_gt()  # gt: Dict[config: List[List[BoundingBox]]
 
     def init_gt(self):
         """read the preprocessed groundtruth of the corresponding detection model."""
-        gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_type}")
+        gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_gt}")
         gt = {file[:-4]: [[]
                           for _ in range(self.gt_frames_num)] for file in gt_acc_files}
         for gt_acc_file in tqdm(gt_acc_files, desc="gt acc"):
             config = gt_acc_file[:-4]
-            with open(f"{self.gt_acc_path}/{self.model_type}/{gt_acc_file}", 'r') as f:
+            with open(f"{self.gt_acc_path}/{self.model_gt}/{gt_acc_file}", 'r') as f:
                 lines = f.readlines()
                 for line in lines:
                     acc = line.strip().split(' ')
@@ -92,14 +93,6 @@ def energy_consuming(frames_num, resolution, local=False):
     transmission_energy = alpha * gamma * \
         frames_num * (width * height * 8) ** 2 if not local else 0
     return processing_energy, transmission_energy
-
-
-def plog(state: dict) -> str:
-    ret = ""
-    for k, v in state.items():
-        ret += f"{k}: {v}, "
-    ret += '\n'
-    return ret
 
 
 if __name__ == '__main__':
