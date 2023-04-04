@@ -99,7 +99,7 @@ def a2c_run():
         policy=policy, env=train_env, buffer=replay_buffer)
     result = ts.trainer.onpolicy_trainer(
         policy=policy, train_collector=train_collector, test_collector=None,
-        max_epoch=20, step_per_epoch=5000,
+        max_epoch=20, step_per_epoch=2000,
         repeat_per_collect=4, episode_per_test=1,
         batch_size=64, step_per_collect=8,
         logger=logger)

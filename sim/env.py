@@ -31,7 +31,7 @@ FRAMERATE = [30, 15, 10]
 SERVER_NUM = 2
 BYTES_IN_MB = 1000000
 SKIP_THRESHOLD = 0.5
-MAX_STEPS = 5000
+MAX_STEPS = 1000
 LOG = "log/"
 TRUNCATED_FRAMES_NUM = 10000
 BW_NORM = 1e4
@@ -59,7 +59,6 @@ class SimEnv(gymnasium.Env):
         self.log = LOG + algorithm + \
             time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + ".csv"
         self.remain_time = 0
-        self.frames_sent = 0
 
         # envs
         self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
@@ -178,18 +177,18 @@ class SimEnv(gymnasium.Env):
             [bws_mean1, bws_mean2, bws_std1, bws_std2], chunk_index, frames_id, \
             chunk_size, processing_energy, transmission_energy = self.do_chunk_analyzing(
                 config)
-        self.frames_sent += len(frames_id)
         self.remain_time += (tranmission_time / MILLS_PER_SECOND)
+        # TODO: check skip_chunk_count logic
         capture_chunks = int(
-            self.remain_time // 2) if not self.drain_mode else 0
+            self.remain_time // 2)
         self.remain_time -= capture_chunks * 2
         for _ in range(capture_chunks):
-            if not self.drain_mode and self.client.full():
-                self.drain_mode = True
-                self.remain_time = 0
             self.client.retrieve(config, self.drain_mode)
             self.chunk_count += 1
             self.skipped_chunk_count += 1 if self.drain_mode else 0
+            if not self.drain_mode and self.client.full():
+                self.drain_mode = True
+                self.remain_time = 0
         if self.drain_mode and self.client.empty():
             self.drain_mode = False
         # has removed "results" attribute in the return state
@@ -228,17 +227,19 @@ class SimEnv(gymnasium.Env):
         #     return -50
         # if state["target"] == 0:
         #     reward -= 100
-        frames_norm = {10: 0.1, 15: 0.2, 30: 0.5}
-        reward = (10 * state["mAps"]) ** 3 * \
-            frames_norm[config["framerate"]] - \
-            (state["delay"] / MILLS_PER_SECOND) - \
-            (state["processing_energy"] + state["transmission_energy"]) / 1e9
+        # frames_norm = {10: 0.1, 15: 0.2, 30: 0.5}
+        # reward = (10 * state["mAps"]) ** 3 * \
+        #     frames_norm[config["framerate"]] - \
+        #     (state["delay"] / MILLS_PER_SECOND) - \
+        #     (state["processing_energy"] + state["transmission_energy"]) / 1e9
+        reward = state["mAps"] * config["framerate"] - state["delay"] / MILLS_PER_SECOND - \
+            (state["processing_energy"] + state["transmission_energy"]) / 1e10
         if state["drain"]:
-            return -100
-        elif state["empty"]:
-            return -100
-        elif state["target"] == 0:
-            reward -= 50
+            return -2
+        # elif state["empty"]:
+        #     return 1
+        # elif state["target"] == 0:
+        #     reward -= 50
         return reward
 
     def step(self, action):
@@ -263,6 +264,8 @@ class SimEnv(gymnasium.Env):
         with open(self.log, 'a') as f:
             for k, v in state.items():
                 f.write(f"{k}: {v}, ")
+            f.write(
+                f"cap_frames_num: {self.client.cap_frames_num}, sent_frames_num: {self.client.sent_frames_num}")
             f.write('\n')
         return obs, reward, terminated, truncated, state
 
@@ -273,7 +276,6 @@ class SimEnv(gymnasium.Env):
         self.skipped_chunk_count = 0
         self.chunk_count = 0
         self.drain_mode = False
-        self.frames_sent = 0
         obs = OrderedDict()
         obs["past_bws_mean"] = np.array([0.0, 0.0], dtype=np.float32)
         obs["past_bws_std"] = np.array([0.0, 0.0], dtype=np.float32)
@@ -286,7 +288,7 @@ class SimEnv(gymnasium.Env):
         return obs, {}
 
     def truncated(self):
-        return self.steps_count > MAX_STEPS or self.frames_sent > TRUNCATED_FRAMES_NUM
+        return self.steps_count > MAX_STEPS
 
     def terminated(self):
         return self.client.done()

@@ -29,7 +29,8 @@ class Client():
         self.detector = YoloDetector("yolov5n")
         self.evaluator = Evaluator("acc", "yolov5n", 1050)
         self.rtt = 0
-        self.traverse_count = 0
+        self.cap_frames_num = 0
+        self.sent_frames_num = 0
         if not os.path.exists(self.tmp_frames):
             os.makedirs(self.tmp_frames)
         if not os.path.exists(self.tmp_chunks):
@@ -42,7 +43,8 @@ class Client():
         self.tmp_chunk_num = 0
         self.used_buffer = 0
         self.dataset.current_frame_id = 1
-        self.traverse_count = 0
+        self.cap_frames_num = 0
+        self.sent_frames_num = 0
         self.buffer.clear()
         subprocess.run(f"rm -rf {self.tmp_frames}/*", shell=True)
         subprocess.run(f"rm -rf {self.tmp_chunks}/*", shell=True)
@@ -95,13 +97,14 @@ class Client():
         if drain_mode:
             return
         self.tmp_chunk_num += 1
+        self.sent_frames_num += len(frames_id)
         chunk_size, encoding_time = self.process_video(
             frames_id, config, self.tmp_chunk_num)
         self.used_buffer += chunk_size
         self.buffer.append([self.tmp_chunk_num, frames_id,
                             chunk_size, encoding_time, config["resolution"]])
 
-    def capture(self, chunk_size, skip):
+    def capture(self, frames_num, skip):
         """retrieve chunk_size frames per second with the interval of skip.
         @params:
             chunk_size: num of frames to capture
@@ -111,13 +114,12 @@ class Client():
         """
         counter = 0
         frames_id = []
-        while counter < chunk_size:
+        while counter < frames_num:
             frames_id.append(self.dataset.current_frame_id)
-            self.traverse_count += 1 if self.dataset.current_frame_id + \
-                skip >= len(self.dataset) else 0
             self.dataset.current_frame_id = (self.dataset.current_frame_id +
                                              skip) % len(self.dataset) + 1
             counter += 1
+        self.cap_frames_num += frames_num
         return frames_id
 
     def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
@@ -155,7 +157,7 @@ class Client():
 
     def done(self):
         # return self.traverse_count >= 3
-        return False
+        return self.cap_frames_num >= 10000
 
 
 class Dataset():
