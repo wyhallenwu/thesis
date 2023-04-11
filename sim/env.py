@@ -24,7 +24,7 @@ GT_ACC_PATH = "acc"
 # QUANTIZER = [5, 15, 25, 35, 45]
 # SKIP = [0, 1, 2, 4, 5]
 # FRAMERATE = [30, 15, 10, 6, 5]
-RESOLUTION = [[1920, 1080], [1600, 900], [960, 540]]
+RESOLUTION = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
 QUANTIZER = [10, 25, 40]
 SKIP = [0, 1, 2]
 FRAMERATE = [30, 15, 10]
@@ -58,6 +58,8 @@ class SimEnv(gymnasium.Env):
         self.drain_mode = False
         self.log = LOG + algorithm + \
             time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + ".csv"
+        self.training_log = LOG + algorithm + \
+            time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + "-train.csv"
         self.remain_time = 0
 
         # envs
@@ -217,29 +219,20 @@ class SimEnv(gymnasium.Env):
     def _get_reward(self, state, config):
         """given the state and action, return the reward.
         """
-        # tradeoff (accuracy, energy, delay) 2023-04-02
-        # reward = (10 * state["mAps"]) ** 4 / frames_norm[config["framerate"]] -\
-        #     (state["analyzing_time"] +
-        #      state["transmission_time"] + state["encoding_time"]) / 25 - (state["processing_energy"] + state["transmission_energy"]) / 1e9
-        # if state["drain"]:
-        #     return -100
-        # if state["empty"]:
-        #     return -50
-        # if state["target"] == 0:
-        #     reward -= 100
-        # frames_norm = {10: 0.1, 15: 0.2, 30: 0.5}
-        # reward = (10 * state["mAps"]) ** 3 * \
-        #     frames_norm[config["framerate"]] - \
-        #     (state["delay"] / MILLS_PER_SECOND) - \
-        #     (state["processing_energy"] + state["transmission_energy"]) / 1e9
-        reward = state["mAps"] * config["framerate"] - state["delay"] / MILLS_PER_SECOND - \
-            (state["processing_energy"] + state["transmission_energy"]) / 1e10
+        # tradeoff (accuracy, energy, delay)
+        alpha = 0.5
+        beta = 0.4
+        gamma = 0.1
+        DELAY_NORM = 0.1
+        baseline = 3 * alpha
+        reward = state["mAps"] * config["framerate"] * alpha - state["delay"] / MILLS_PER_SECOND / DELAY_NORM * beta - \
+            (state["processing_energy"] +
+             state["transmission_energy"]) / 5e9 * gamma
+        if config["target"] == 0:
+            # reward -= baseline
+            return -3
         if state["drain"]:
-            return -2
-        # elif state["empty"]:
-        #     return 1
-        # elif state["target"] == 0:
-        #     reward -= 50
+            return -1.5
         return reward
 
     def step(self, action):
@@ -267,6 +260,10 @@ class SimEnv(gymnasium.Env):
             f.write(
                 f"cap_frames_num: {self.client.cap_frames_num}, sent_frames_num: {self.client.sent_frames_num}")
             f.write('\n')
+        with open(self.training_log, 'a') as f:
+            for k, v in obs.items():
+                f.write(f"{k}: {v}, ")
+            f.write(f"reward: {reward}\n")
         return obs, reward, terminated, truncated, state
 
     def reset(self, seed=None, options=None):

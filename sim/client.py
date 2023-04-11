@@ -104,7 +104,7 @@ class Client():
         self.buffer.append([self.tmp_chunk_num, frames_id,
                             chunk_size, encoding_time, config["resolution"]])
 
-    def capture(self, frames_num, skip):
+    def capture(self, frames_num: int, skip: int):
         """retrieve chunk_size frames per second with the interval of skip.
         @params:
             chunk_size: num of frames to capture
