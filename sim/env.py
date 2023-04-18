@@ -1,41 +1,47 @@
 from typing import List
 import numpy as np
 from sim.util import energy_consuming
-import torch
+import pandas as pd
 from sim.client import Client
 import gymnasium
 from gymnasium import spaces
 from sim.server import Server, OffloadingTargets
 from collections import OrderedDict
 import time
-# action: [framerate, resolution, quantizer, offloading target]
-# skip = [0, 1, 2, 4, 5] => fps = [30, 15, 10, 6, 5]
-# timestamp is 2 seconds
-MILLS_PER_SECOND = 1000
-BUFFER_SIZE = 2000000  # bytes = 2Mb
-MOT_DATASET_PATH = "MOT16-04/img1"
-GT_PATH = "gt"
-MOT_FRAMES_NUM = 1050
-TMP_PATH = "tmp"
-TMP_FRAMES = TMP_PATH + "/frames"
-TMP_CHUNKS = TMP_PATH + "/chunks"
-GT_ACC_PATH = "acc"
+""" settings:
+action space: [framerate, resolution, quantizer, offloading target]
+skip [0, 1, 2, 4, 5] frames => fps [30, 15, 10, 6, 5]
+default timestamp interval is 2 seconds(assume the stream is captured in 30fps)
+
+setting option:
 # RESOLUTION = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
-# QUANTIZER = [5, 15, 25, 35, 45]
+# QUANTIZER = [18, 23, 28, 33, 38, 43]
 # SKIP = [0, 1, 2, 4, 5]
 # FRAMERATE = [30, 15, 10, 6, 5]
-RESOLUTION = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
-QUANTIZER = [10, 25, 40]
-SKIP = [0, 1, 2]
-FRAMERATE = [30, 15, 10]
-SERVER_NUM = 2
+"""
+# ==================================hyperparameters===============================
+MILLS_PER_SECOND = 1000
+BUFFER_SIZE = 5000000  # bytes => 5Mb
+MOT_FRAMES_NUM = 1050  # MOT16-04 has 1050 frames
+TRUNCATED_FRAMES_NUM = 10000  # captured more than 10000 frames, truncated the episode
+BW_NORM = 1e4  # scaling the bandwidth in observation
+SERVER_NUM = 2  # num of remote servers
 BYTES_IN_MB = 1000000
-SKIP_THRESHOLD = 0.5
-MAX_STEPS = 1000
+MAX_STEPS = 1000  # max steps in an episode
+
+# paths
+MOT_DATASET_PATH = "MOT16-04/img1"
+GT_PATH = "gt"
+TMP_PATH = "tmp"
+GT_ACC_PATH = "acc"
 LOG = "log/"
-TRUNCATED_FRAMES_NUM = 10000
-BW_NORM = 1e4
-BWS_BOUND = 1e5
+
+# action space
+RESOLUTION = [[1920, 1080], [1600, 900], [1280, 720], [960, 540]]
+QUANTIZER = [18, 23, 28, 33, 38, 43]
+SKIP = [0, 1, 2, 4, 5]
+FRAMERATE = [30, 15, 10, 6, 5]
+# ================================================================================
 
 
 class SimEnv(gymnasium.Env):
@@ -45,7 +51,7 @@ class SimEnv(gymnasium.Env):
         # client
         self.client = Client(MOT_DATASET_PATH, GT_PATH,
                              TMP_PATH+"/"+algorithm, BUFFER_SIZE)
-        # remote servers
+        # remote edge servers
         self.server1 = Server(1, "norway", "detr", GT_ACC_PATH, MOT_FRAMES_NUM)
         self.server2 = Server(2, "norway", "yolov5m",
                               GT_ACC_PATH, MOT_FRAMES_NUM)
@@ -53,14 +59,15 @@ class SimEnv(gymnasium.Env):
         # other
         self.algorithm = algorithm
         self.steps_count = 0
-        self.skipped_chunk_count = 0
-        self.chunk_count = 0
+        self.skipped_segment_count = 0
+        self.segment_count = 0
         self.drain_mode = False
         self.log = LOG + algorithm + \
             time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + ".csv"
         self.training_log = LOG + algorithm + \
             time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime()) + "-train.csv"
         self.remain_time = 0
+        self.drain_step_count = 0
 
         # envs
         self.actions_mapping = self.__build_actions_mapping(SERVER_NUM + 1)
@@ -69,12 +76,9 @@ class SimEnv(gymnasium.Env):
             "past_bws_mean": spaces.Box(low=np.array([0, 0]), high=np.array(self.servers.get_max_bw())/BYTES_IN_MB, dtype=np.float32),
             "past_bws_std": spaces.Box(low=np.array([0, 0]), high=np.array(self.servers.get_max_bw())/BYTES_IN_MB, dtype=np.float32),
             "available_buffer_size": spaces.Box(low=-2 * BUFFER_SIZE/BYTES_IN_MB, high=2 * BUFFER_SIZE / BYTES_IN_MB, dtype=np.float32),
-            "chunk_size": spaces.Box(low=0, high=2.0 * BUFFER_SIZE / BYTES_IN_MB, dtype=np.float32),
-            "past_chunk_delay": spaces.Box(low=0, high=np.inf, dtype=np.float32)
+            "segment_size": spaces.Box(low=0, high=2.0 * BUFFER_SIZE / BYTES_IN_MB, dtype=np.float32),
+            "past_segment_delay": spaces.Box(low=0, high=np.inf, dtype=np.float32)
         })
-        # self.observation_space = spaces.Box(low=np.array([0.0, 0.0, 0.0, 0.0, -2.0 * BUFFER_SIZE, 0.0]),
-        #                                     high=np.array([np.inf, np.inf, np.inf, np.inf, 2.0*BUFFER_SIZE, 2.0*BUFFER_SIZE], dtype=np.float64))
-
         print("BUILD SIMENV DONE.")
 
     def __build_actions_mapping(self, links) -> List:
@@ -87,24 +91,24 @@ class SimEnv(gymnasium.Env):
                             {"resolution": resolution, "framerate": framerate, "quantizer": q, "target": id})
         return configs
 
-    def do_chunk_analyzing(self, config):
-        """sending and analyzing a chunk.
+    def do_segment_analyzing(self, config):
+        """sending and analyzing a segment.
         @params:
             config(Dict): resolution, framerate, quantizer, target
         @returns:
-            results(List): List of metrics for each frame in the chunk
+            results(List): List of metrics for each frame in the segment
             mAps(List): mAp of each frame
             analyzing_time(float): detector's processing time(milliseconds)
-            encoding_time(int): time for encoding the frames into a chunk(milliseconds)
-            tranmission_time(float): transmission time for sending the chunk from client to server  
-            [bws_mean1, bws_mean2, bws_std1, bws_std2]: mean and std of all offloading targets bandwidth to send the chunk
-            chunk_index(int): the index of the chunk
+            encoding_time(int): time for encoding the frames into a segment(milliseconds)
+            tranmission_time(float): transmission time for sending the segment from client to server  
+            [bws_mean1, bws_mean2, bws_std1, bws_std2]: mean and std of all offloading targets bandwidth to send the segment
+            segment_index(int): the index of the segment
             frames_id(List[int]): list of frames it contains
-            chunk_size(int): bytes of the chunk
-            local_processing_energy(float): if chunk is processed locally
-            tranmission_energy(float): if chunk is sent to remote server
+            segment_size(int): bytes of the segment
+            local_processing_energy(float): if segment is processed locally
+            tranmission_energy(float): if segment is sent to remote server
         """
-        chunk_index, frames_id, chunk_size, encoding_time, resolution = self.client.get_chunk()
+        segment_index, frames_id, segment_size, encoding_time, resolution = self.client.get_segment()
         transmission_time = 0
         local_processing_energy, transmission_energy = energy_consuming(
             len(frames_id), config["resolution"], config["target"] == 0)
@@ -112,9 +116,9 @@ class SimEnv(gymnasium.Env):
         bws2 = []
         if config["target"] != 0:
             server = self.servers.get_server_by_id(config["target"])
-            bytes_to_send = chunk_size
-            results, mAps, analyzing_time, = server.analyze_video_chunk(
-                f"{self.client.tmp_chunks}/{chunk_index:06d}.avi", frames_id, config["resolution"])
+            bytes_to_send = segment_size
+            results, mAps, analyzing_time, = server.analyze_video_segment(
+                f"{self.client.tmp_segments}/{segment_index:06d}.avi", frames_id, config["resolution"])
             while bytes_to_send > 0:
                 bws = self.servers.step_networks()
                 bws1.append(bws[0])
@@ -124,13 +128,13 @@ class SimEnv(gymnasium.Env):
                 transmission_time += server.rtt + int(t * 1000)
                 bytes_to_send -= throughputs
         else:
-            results, mAps, analyzing_time = self.client.analyze_video_chunk(
-                f"{self.client.tmp_chunks}/{chunk_index:06d}.avi", frames_id, config["resolution"])
+            results, mAps, analyzing_time = self.client.analyze_video_segment(
+                f"{self.client.tmp_segments}/{segment_index:06d}.avi", frames_id, config["resolution"])
             bws1.append(self.servers.current_bws[0])
             bws2.append(self.servers.current_bws[1])
         return results, mAps, analyzing_time, encoding_time, transmission_time,\
             [np.mean(bws1), np.mean(bws2), np.std(bws1), np.std(bws2)], \
-            chunk_index, frames_id, chunk_size, local_processing_energy, transmission_energy
+            segment_index, frames_id, segment_size, local_processing_energy, transmission_energy
 
     def update_state(self, config):
         """given an config(action) and update the environment.
@@ -140,103 +144,101 @@ class SimEnv(gymnasium.Env):
             Dict:
                 empty(bool): True if the client buffer is empty
                 drain(bool):True if in draining_mode else False
-                # results(List[float]): evaluated metrics of the chunk
-                mAps(float): mean mAp of all frames in the chunk
-                analyzing_time(int): millisecond that detectors takes to analyze the chunk
-                encoding_time(int): millisecond that gstreamer encodes the chunk
-                tranmission_time(int): millisecond to send the chunk to the remote target
-                capture_chunk(int): num of chunks that should captured from the stream while sending the current chunk
-                bws_mean1(float): mean bandwidth of remote target 1 to send the chunk
-                bws_mean2(float): mean bandwidth of remote target 2 to send the chunk
+                # results(List[float]): evaluated metrics of the segment
+                mAps(float): mean mAp of all frames in the segment
+                analyzing_time(int): millisecond that detectors takes to analyze the segment
+                encoding_time(int): millisecond that gstreamer encodes the segment
+                tranmission_time(int): millisecond to send the segment to the remote target
+                capture_segment(int): num of segments that should captured from the stream while sending the current segment
+                bws_mean1(float): mean bandwidth of remote target 1 to send the segment
+                bws_mean2(float): mean bandwidth of remote target 2 to send the segment
                 bws_std1(float): std of the bandwidth of remote target 1
                 bws_std2(float): std of the bandwidth of remote target 2
         """
         if self.client.empty():
             self.remain_time = 0
             self.client.retrieve(config)
-            self.chunk_count += 1
+            self.segment_count += 1
             bws = [[] for _ in range(len(self.servers))]
             for _ in range(2):
                 curr_bws = self.servers.step_networks()
                 bws[0].append(curr_bws[0])
                 bws[1].append(curr_bws[1])
-            # return {"empty": True, "drain": self.drain_mode, "mAps": 0,
-            #         "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
-            #         "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1]), "chunk_size": 0,
-            #         "processing_energy": 0, "tranmission_energy": 0}
-            return {"empty": True, "drain": self.drain_mode, "mAps": 0,
+            return {"empty": True, "drain_mode": self.drain_mode, "mAps": 0,
                     "analyzing_time": 0, "encoding_time": 0,
-                    "transmission_time": 0, "capture_chunks": 1,
+                    "transmission_time": 0, "capture_segments": 1,
                     "bws_mean1": np.mean(bws[0]), "bws_mean2": np.mean(bws[1]),
-                    "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1]), "chunk_index": -1,
-                    "frames_num": 0, "chunk_size": 0,
+                    "bws_std1": np.std(bws[0]), "bws_std2": np.std(bws[1]), "segment_index": -1,
+                    "frames_num": 0, "segment_size": 0,
                     "resolution": config["resolution"], "framerate": config["framerate"], "quantizer": config["quantizer"],
                     "target": config["target"], "remian_time": self.remain_time,
                     "available_buffer_size": self.client.get_buffer_vacancy(),
                     "processing_energy": 0, "transmission_energy": 0, "delay": 0}
 
         results, mAps, analyzing_time, encoding_time, tranmission_time, \
-            [bws_mean1, bws_mean2, bws_std1, bws_std2], chunk_index, frames_id, \
-            chunk_size, processing_energy, transmission_energy = self.do_chunk_analyzing(
+            [bws_mean1, bws_mean2, bws_std1, bws_std2], segment_index, frames_id, \
+            segment_size, processing_energy, transmission_energy = self.do_segment_analyzing(
                 config)
         self.remain_time += (tranmission_time / MILLS_PER_SECOND)
-        # TODO: check skip_chunk_count logic
-        capture_chunks = int(
+        capture_segments = int(
             self.remain_time // 2)
-        self.remain_time -= capture_chunks * 2
-        for _ in range(capture_chunks):
+        self.remain_time -= capture_segments * 2
+        for _ in range(capture_segments):
             self.client.retrieve(config, self.drain_mode)
-            self.chunk_count += 1
-            self.skipped_chunk_count += 1 if self.drain_mode else 0
+            self.segment_count += 1
+            self.skipped_segment_count += 1 if self.drain_mode else 0
             if not self.drain_mode and self.client.full():
                 self.drain_mode = True
                 self.remain_time = 0
         if self.drain_mode and self.client.empty():
             self.drain_mode = False
         # has removed "results" attribute in the return state
-        return {"empty": False, "drain": self.drain_mode, "mAps": np.mean(mAps),
+        return {"empty": False, "drain_mode": self.drain_mode, "mAps": np.mean(mAps),
                 "analyzing_time": analyzing_time, "encoding_time": encoding_time,
-                "transmission_time": tranmission_time, "capture_chunks": capture_chunks,
+                "transmission_time": tranmission_time, "capture_segments": capture_segments,
                 "bws_mean1": bws_mean1, "bws_mean2": bws_mean2, "bws_std1": bws_std1,
-                "bws_std2": bws_std2, "chunk_index": chunk_index,
-                "frames_num": len(frames_id), "chunk_size": chunk_size,
+                "bws_std2": bws_std2, "segment_index": segment_index,
+                "frames_num": len(frames_id), "segment_size": segment_size,
                 "resolution": config["resolution"], "framerate": config["framerate"], "quantizer": config["quantizer"],
                 "target": config["target"], "remain_time": self.remain_time, "available_buffer_size": self.client.get_buffer_vacancy(),
                 "processing_energy": processing_energy, "transmission_energy": transmission_energy,
                 "delay": tranmission_time + encoding_time + analyzing_time}
 
     def _get_obs(self, state, config):
-        """get observation."""
+        """return observation."""
         obs = {"past_bws_mean": np.array([state["bws_mean1"]/BW_NORM, state["bws_mean2"]/BW_NORM]),
                "past_bws_std": np.array([state["bws_std1"]/BW_NORM, state["bws_std2"]/BW_NORM]),
                "available_buffer_size": np.array([self.client.get_buffer_vacancy() / BYTES_IN_MB]),
-               "chunk_size": np.array([state["chunk_size"] / BYTES_IN_MB]),
-               "past_chunk_delay": np.array([state["delay"] / MILLS_PER_SECOND])}
-        # obs = np.array([state["bws_mean1"], state["bws_mean2"], state["bws_std1"], state["bws_std2"],
-        #                 self.client.get_buffer_vacancy(), state["chunk_size"]], dtype=np.float64)
+               "segment_size": np.array([state["segment_size"] / BYTES_IN_MB]),
+               "past_segment_delay": np.array([state["delay"] / MILLS_PER_SECOND])}
         return obs
 
     def _get_reward(self, state, config):
-        """given the state and action, return the reward.
-        """
+        """given the state and action, return the reward."""
+        # TODO(wuyuheng): tune reward
         # tradeoff (accuracy, energy, delay)
-        alpha = 0.5
-        beta = 0.4
+        alpha = 0.1
+        beta = 0.1
         gamma = 0.1
-        DELAY_NORM = 0.1
         baseline = 3 * alpha
-        reward = state["mAps"] * config["framerate"] * alpha - state["delay"] / MILLS_PER_SECOND / DELAY_NORM * beta - \
+        if not state["drain_mode"] and self.drain_step_count > 0:
+            self.drain_step_count = 0
+
+        reward = state["mAps"] * config["framerate"] * alpha - state["delay"] / MILLS_PER_SECOND * beta - \
             (state["processing_energy"] +
-             state["transmission_energy"]) / 5e9 * gamma
+             state["transmission_energy"]) / 1e10
+
+        if state["drain_mode"]:
+            self.drain_step_count += 1
+            if self.drain_step_count == 1:
+                return -5
+            reward -= 0.5
         if config["target"] == 0:
-            # reward -= baseline
-            return -3
-        if state["drain"]:
-            return -1.5
+            reward -= 0.5
         return reward
 
     def step(self, action):
-        """given and perform an action and get information.
+        """given and perform an action and step to next state.
         @params:
             action(int): action generated by the algorithm
         @return:
@@ -247,41 +249,38 @@ class SimEnv(gymnasium.Env):
             info(dict): state
         """
         self.steps_count += 1
-        print(action)
         config = self.actions_mapping[action]
         state = self.update_state(config)
         obs = self._get_obs(state, config)
         reward = self._get_reward(state, config)
         truncated = self.truncated()
         terminated = self.terminated()
-        with open(self.log, 'a') as f:
-            for k, v in state.items():
-                f.write(f"{k}: {v}, ")
-            f.write(
-                f"cap_frames_num: {self.client.cap_frames_num}, sent_frames_num: {self.client.sent_frames_num}")
-            f.write('\n')
-        with open(self.training_log, 'a') as f:
-            for k, v in obs.items():
-                f.write(f"{k}: {v}, ")
-            f.write(f"reward: {reward}\n")
+        # logging
+        log_info = dict(**state, cap_frames_num=self.client.cap_frames_num,
+                        sent_frames_num=self.client.sent_frames_num)
+        train_info = dict(**obs, reward=reward,
+                          terminated=(terminated or truncated))
+        log_info_df = pd.DataFrame([log_info])
+        train_info_df = pd.DataFrame([train_info])
+        log_info_df.to_csv(f"{self.log}", mode='a', header=None, index=False)
+        train_info_df.to_csv(f"{self.training_log}",
+                             mode='a', header=None, index=False)
         return obs, reward, terminated, truncated, state
 
     def reset(self, seed=None, options=None):
         self.client.reset()
         self.servers.reset()
         self.steps_count = 0
-        self.skipped_chunk_count = 0
-        self.chunk_count = 0
+        self.skipped_segment_count = 0
+        self.segment_count = 0
         self.drain_mode = False
         obs = OrderedDict()
         obs["past_bws_mean"] = np.array([0.0, 0.0], dtype=np.float32)
         obs["past_bws_std"] = np.array([0.0, 0.0], dtype=np.float32)
         obs["available_buffer_size"] = np.array(
             [self.client.get_buffer_vacancy() / BYTES_IN_MB], dtype=np.float32)
-        obs["chunk_size"] = np.array([0], dtype=np.float32)
-        obs["past_chunk_delay"] = np.array([0], dtype=np.float32)
-        # obs = np.array(
-        #     [0.0, 0.0, 0.0, 0.0, self.client.get_buffer_vacancy(), 0.0], dtype=np.float64)
+        obs["segment_size"] = np.array([0], dtype=np.float32)
+        obs["past_segment_delay"] = np.array([0], dtype=np.float32)
         return obs, {}
 
     def truncated(self):

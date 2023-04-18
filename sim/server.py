@@ -6,6 +6,8 @@ import random
 
 
 class Server():
+    """Server is the simulated edge server."""
+
     def __init__(self, server_id: int, traces: str, model_type: str, gt_acc_path: str, frames_num: int) -> None:
         self.server_id = server_id
         self.network = NetworkSim(traces)
@@ -15,37 +17,37 @@ class Server():
         else:
             self.detector = DetrDetector()
         self.evaluator = Evaluator(gt_acc_path, "yolov5x", frames_num)
+        # simulated rtt delay
         self.rtt = random.randint(60, 80)
 
     def reset(self):
         self.rtt = random.randint(60, 80)
         self.network.reset()
 
-    def analyze_video_chunk(self, chunk_filename, frames_id, resolution):
-        """analyzing video chunk and compare it with corresponding resolution preprocessed groundtruth.
+    def analyze_video_segment(self, segment_filename, frames_id, resolution):
+        """analyzing video segment and compare it with corresponding resolution preprocessed groundtruth.
         @param:
-            chunk_filename(str): path to the video chunk 
+            segment_filename(str): path to the video segment 
             frames_id(List[int]): index of each frame
             resolution(List[int]): [width, height]
         @return:
             results(List): wrapped result of earh frame(ap, precision, interpolated_recall, interpolated_precision, tp, fp, num_groundtruth, num_detection)
             mAps(List[float]): mAp of each frame
-            processing_time(float): process time of the whole chunk
+            processing_time(float): process time of the whole segment
         """
-        bboxes, processing_time = self.detector.detect_video_chunk(
-            chunk_filename, frames_id)
+        bboxes, processing_time = self.detector.analyze_single_segment(
+            segment_filename, frames_id)
         mAps = []
         results = []
         for boxes, frame_id in zip(bboxes, frames_id):
             result, mAp = self.evaluator.evaluate(
-                boxes, f"{resolution[0]}x{resolution[1]}", frame_id)
+                boxes, resolution, frame_id)
             results.append(result)
             mAps.append(mAp)
         return results, mAps, processing_time
 
     def step_network(self):
-        """step the simulated network trace to next timestamp.
-
+        """step the simulated network trace to next the timestamp.
         @returns:
             bws(List[int]): bytes per second
             throughputs(int): sum of bytes in the period
@@ -58,6 +60,8 @@ class Server():
 
 
 class OffloadingTargets():
+    """OffloadingTarges is the collection of edge servers."""
+
     def __init__(self, servers: List[Server]) -> None:
         self.servers = servers
         self.current_bws = [0] * len(self.servers)
@@ -66,7 +70,7 @@ class OffloadingTargets():
         self.servers.append(server)
 
     def step_networks(self):
-        """step all offloading targets to the next timestamp.
+        """step the network of all offloading targets to the next the timestamp.
         @retuns:
             bws(List[List[int]]): bytes per second of each target in the eplased time.
             throughputs(List[int]): throughputs of each target in the eplased time.

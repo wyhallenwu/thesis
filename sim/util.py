@@ -3,13 +3,14 @@ from typing import List
 import os
 from tqdm import tqdm
 
-"""
-BoundingBox: image, category, xmin, ymin, xmax, ymax, score(None)
-GT format: frame_id, category, xmin, ymin, xmax, ymax, score
-"""
+
+# BoundingBox: image, category, xmin, ymin, xmax, ymax, score(None)
+# GT format: frame_id, category, xmin, ymin, xmax, ymax, score
 
 
 class GT():
+    """GT is the collection of the pre-analyzed groundtruth."""
+
     def __init__(self, gt_acc_path, model_type, gt_frames_num) -> None:
         self.gt_acc_path = gt_acc_path
         self.model_type = model_type
@@ -18,7 +19,7 @@ class GT():
         self.gt = self.init_gt()  # gt: Dict[config: List[List[BoundingBox]]
 
     def init_gt(self):
-        """read the preprocessed groundtruth of the corresponding detection model."""
+        """load groundtruth of the corresponding detection model."""
         gt_acc_files = os.listdir(f"{self.gt_acc_path}/{self.model_gt}")
         gt = {file[:-4]: [[]
                           for _ in range(self.gt_frames_num)] for file in gt_acc_files}
@@ -33,13 +34,14 @@ class GT():
                     gt[config][int(acc[0]) - 1].append(bbox)
         return gt
 
-    def get_boundingboxes(self, config, frame_id):
-        """given the configuration and frame index, return the groundtruth boundingbox.
+    def get_boundingboxes(self, resolution, frame_id):
+        """return the groundtruth boundingbox within the corresponding resolution and frame_id.
         @params:
-            config(str): {width}x{height}
+            resolution: [width, height]
             frame_id(int): index of frame
         """
-        return self.gt[config][frame_id - 1]
+        resolution = f"{resolution[0]}x{resolution[1]}"
+        return self.gt[resolution][frame_id - 1]
 
     def test(self):
         print("ground truth frames num: ", self.gt_frames_num)
@@ -51,6 +53,8 @@ class GT():
 
 
 class Evaluator():
+    """Evaluator evaluates the predition with the groundtruth."""
+
     def __init__(self, gt_acc_path, model_type, frames_num, iou_threshold=0.5) -> None:
         self.model_type = model_type
         self.gt_acc_path = gt_acc_path
@@ -58,19 +62,19 @@ class Evaluator():
         self.iou_threshold = iou_threshold
         self.frames_num = frames_num
 
-    def evaluate(self, prediction, config, frame_id):
-        """evaluate the prediction with the corresponding config groudtruth.
+    def evaluate(self, prediction, resolution, frame_id):
+        """evaluate the prediction of a frame with the corresponding config groudtruth.
         @params:
             prediction(List[BoundingBox]): detected boundingboxes in the frame
-            config(str): {width}x{height}
+            resolution: [width, height]
             frame_id(int): the frame index in the original stream
         @returns:
-            ret(Dict): presion, recall, ap, tp, fp of the frame
+            ret(Dict): {presion, recall, ap, tp, fp} of a single frame
             mAp(float): mAp
         """
         ret = {}
         result = get_pascal_voc_metrics(
-            self.gt.get_boundingboxes(config, frame_id), prediction)
+            self.gt.get_boundingboxes(resolution, frame_id), prediction)
         for k, v in result.items():
             ret[k] = {"precision": v.precision, "recall": v.recall, "ap": v.ap, "tp": v.tp,
                       "fp": v.fp}
@@ -78,12 +82,12 @@ class Evaluator():
 
 
 def energy_consuming(frames_num, resolution, local=False):
-    """energy consumed to process and send the chunk.
+    """energy consumed to process n frames.
     following the setting of paper: Joint Configuration Adaptation and Bandwidth Allocation for Edge-based Real-time Video Analytics
     @params:
-        frames_num(int): frames the chunk contained
+        frames_num(int): frames the segment contained
         resolution(List[int]): [width, height]
-        local(bool): if True the chunk is processed by local client else by the remote server
+        local(bool): if True the segment is processed by local client else by the remote server
     """
     mu = 5  # 5j/frame
     gamma = 5e-6

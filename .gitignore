@@ -1,8 +1,7 @@
-dataset/
-videos/
-*.pt
 acc/
 gt/
+motivation/
 sim/__pycache__/
 MOT16-04/
 tmp/
+traces/
